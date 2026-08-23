@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { Client, Pool } from 'pg'
@@ -6,7 +6,11 @@ import { aiRoadmapApi } from './server/ai/plugin.ts'
 import { authenticateRoadmapRequest, AuthenticationError } from './server/ai/auth.ts'
 import { createAiConfig } from './server/ai/config.ts'
 
-const env = Object.fromEntries(readFileSync('.env.local', 'utf8').split(/\r?\n/).filter(line => /^[A-Z0-9_]+=/.test(line)).map(line => [line.slice(0,line.indexOf('=')),line.slice(line.indexOf('=')+1)]))
+const localEnv = existsSync('.env.local')
+  ? Object.fromEntries(readFileSync('.env.local', 'utf8').split(/\r?\n/).filter(line => /^[A-Z0-9_]+=/.test(line)).map(line => [line.slice(0,line.indexOf('=')),line.slice(line.indexOf('=')+1)]))
+  : {}
+// Deployment hosts provide environment variables directly; local values only fill absent keys.
+const env: Record<string, string | undefined> = { ...localEnv, ...process.env }
 const map = { Career:['careers','career_id','title','description','division_title','source_name','source_url','last_reviewed','verification_status'], Course:['courses','course_id','course_name','description','field','source_basis','source_url','publish_recommendation','verification_status'], College:['institutions','institution_id','institution_name','institution_type','state','source_name','source_url','last_reviewed','verification_status'], Exam:['exams','exam_id','exam_name','typical_purpose','category','conducting_body','official_url','last_reviewed','verification_status'], Scholarship:['scholarships','scholarship_id','scholarship_name','eligibility_summary','category','provider','official_url','last_reviewed','verification_status'] } as const
 function knowledgeApi(): Plugin { return { name:'manyfolds-knowledge-api', configureServer(server) { server.middlewares.use('/api/knowledge', async (req,res) => { try { const url = new URL(req.url || '', 'http://localhost'); const type = (url.searchParams.get('type') || 'Career') as keyof typeof map; const query = url.searchParams.get('q') || ''; const page=Math.max(1,Number(url.searchParams.get('page')||1)); const limit=Math.min(100,Math.max(10,Number(url.searchParams.get('limit')||30))); if (!map[type]) {res.statusCode=400;res.end(JSON.stringify({error:'Invalid type'}));return}; const [table,id,name,summary,field,source,urlField,review,status] = map[type]; const client = new Client({connectionString:env.DATABASE_URL,ssl:{rejectUnauthorized:false}}); await client.connect(); const filter = query ? `where ${name} ilike $1 or coalesce(${summary},'') ilike $1` : ''; const values=query?[`%${query}%`,limit,(page-1)*limit]:[limit,(page-1)*limit]; const offset=query?'$3':'$2'; const count = await client.query(`select count(*)::int total from ${table} ${filter}`, query?[`%${query}%`]:[]); const rows = await client.query(`select ${id} id, ${name} name, ${summary} summary, ${field} field, ${source} source_name, ${urlField} source_url, ${review} last_reviewed, ${status} verification_status from ${table} ${filter} order by ${name} asc limit $${query?2:1} offset ${offset}`,values); await client.end(); res.setHeader('Content-Type','application/json');res.end(JSON.stringify({type,page,limit,total:count.rows[0].total,records:rows.rows})) } catch(error) { res.statusCode=500;res.setHeader('Content-Type','application/json');res.end(JSON.stringify({error:error instanceof Error?error.message:'Search failed'})) } }) } } }
 function counsellorApi(): Plugin {

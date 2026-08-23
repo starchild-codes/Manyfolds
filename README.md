@@ -42,7 +42,7 @@ Use `npm run build` for a production bundle and `npm run lint` for static checks
 
 ## Controlled release configuration
 
-This release is for authenticated counsellors only. Apply the Supabase migrations before using real student records, assign each staff account an active `organisation_memberships` row, and configure Google OAuth to redirect to `<production-origin>/auth/callback` (and `http://localhost:5173/auth/callback` locally).
+This release is for authenticated counsellors only. Apply the Supabase migrations before using real student records, assign each staff account an active `organisation_memberships` row, and configure Google OAuth to redirect to `<production-origin>/auth/callback` (and `http://localhost:5173/auth/callback` locally). In deployment, configure the variables from `.env.example` in the host; the server reads host-provided variables and does not require a checked-in `.env.local`.
 
 The server endpoints verify the Supabase access token and derive the counsellor identity from it; they never accept a counsellor identity from the browser. Keep `DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `OPENROUTER_API_KEY` only in the server environment. A static host cannot serve the `/api/*` endpoints: deploy the Vite server integration to a Node-capable host or move those handlers to serverless functions before production.
 
