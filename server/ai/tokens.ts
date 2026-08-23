@@ -66,6 +66,27 @@ export function compactEvidence(
     total = fixedTokens + evidenceTokens
   }
 
+  // A roadmap may still be useful when catalogue evidence is sparse. Preserve the student's
+  // decisive context and only the smallest verified identifiers rather than failing on verbose
+  // catalogue/source text. Missing facts remain explicitly represented by missing_data.
+  if (total > config.maxInputTokens) {
+    compact.alternative_careers = []
+    compact.verified_courses = compact.verified_courses.slice(0, 1).map((item) => ({ ...item, subject_requirements: item.subject_requirements.slice(0, 3) }))
+    compact.verified_programmes = compact.verified_programmes.slice(0, 1)
+    compact.verified_exams = compact.verified_exams.slice(0, 1)
+    compact.verified_scholarships = compact.verified_scholarships.slice(0, 1)
+    compact.verified_relationships = compact.verified_relationships.slice(0, 3)
+    compact.verified_admission_cycles = compact.verified_admission_cycles.slice(0, 1)
+    compact.source_records = compact.source_records.slice(0, 6)
+    compact.student.subject_affinities = compact.student.subject_affinities.slice(0, 6)
+    compact.student.skills = compact.student.skills.slice(0, 5)
+    compact.student.work_preferences = compact.student.work_preferences.slice(0, 4)
+    compact.student.values = compact.student.values.slice(0, 4)
+    compact.missing_data = compact.missing_data.slice(0, 5)
+    evidenceTokens = estimateTokens(compact)
+    total = fixedTokens + evidenceTokens
+  }
+
   if (total > config.maxInputTokens) {
     throw new TokenBudgetError(
       'This request would exceed the roadmap token limit. The evidence package must be reduced before generation.',
