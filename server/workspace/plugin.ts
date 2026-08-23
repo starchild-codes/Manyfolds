@@ -20,6 +20,10 @@ export function workspaceApi(env: Record<string, string | undefined>): Plugin {
   }
   const context=async(userId:string)=>{
     const result=await pool.query(`select m.organisation_id::text,m.role,o.name,o.school_type,o.city,o.state,o.country,o.approximate_student_count from organisation_memberships m join organisations o on o.id=m.organisation_id where m.user_id=$1 and m.active order by m.created_at`,[userId])
+    for (const workspace of result.rows) {
+      const classes=await pool.query(`select c.class_name,coalesce(array_agg(s.section_name order by s.section_name) filter(where s.id is not null),'{}') sections from school_classes c left join school_sections s on s.class_id=c.id where c.organisation_id=$1 group by c.id,c.class_name order by c.class_name`,[workspace.organisation_id])
+      workspace.classes=classes.rows
+    }
     return result.rows
   }
   return {name:'manyfolds-workspace-api',configureServer(server){server.middlewares.use('/api/workspace',async(req,res)=>{try{
@@ -33,6 +37,7 @@ export function workspaceApi(env: Record<string, string | undefined>): Plugin {
         const current=memberships[0]
         if(current.school_type&&current.city&&current.state) return respond(res,200,{workspace:current,created:false})
         await pool.query('update organisations set name=$1,school_type=$2,city=$3,state=$4,country=$5,approximate_student_count=$6,updated_at=now() where id=$7',[name,schoolType,city,state,country,estimate,current.organisation_id])
+        for(const entry of classes as Array<{name?:unknown;sections?:unknown}>){const className=String(entry.name||'').trim();if(!className)continue;const created=await pool.query('insert into school_classes(organisation_id,class_name) values($1,$2) on conflict(organisation_id,class_name) do update set class_name=excluded.class_name returning id',[current.organisation_id,className]);for(const section of Array.isArray(entry.sections)?entry.sections:[]){const label=String(section).trim();if(label)await pool.query('insert into school_sections(organisation_id,class_id,section_name) values($1,$2,$3) on conflict(class_id,section_name) do nothing',[current.organisation_id,created.rows[0].id,label])}}
         return respond(res,200,{workspace:(await context(user.id))[0],created:false})
       }
       const db=await pool.connect(); try { await db.query('begin'); const existing=await db.query('select organisation_id::text,role from organisation_memberships where user_id=$1 and active limit 1',[user.id]); if(existing.rowCount){await db.query('commit');return respond(res,200,{workspace:(await context(user.id))[0],created:false})}
