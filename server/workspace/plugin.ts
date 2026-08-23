@@ -26,7 +26,12 @@ export function workspaceApi(env: Record<string, string | undefined>): Plugin {
     const user=await auth(req); const memberships=await context(user.id)
     if(req.method==='GET') return respond(res,200,{memberships})
     if(req.method==='POST' && (req.url||'').startsWith('/onboarding')) {
-      if(memberships.length) return respond(res,200,{workspace:memberships[0],created:false})
+      if(memberships.length) {
+        const current=memberships[0]
+        if(current.school_type&&current.city&&current.state) return respond(res,200,{workspace:current,created:false})
+        await pool.query('update organisations set name=$1,school_type=$2,city=$3,state=$4,country=$5,approximate_student_count=$6,updated_at=now() where id=$7',[name,schoolType,city,state,country,estimate,current.organisation_id])
+        return respond(res,200,{workspace:(await context(user.id))[0],created:false})
+      }
       const body=await read(req); const name=String(body.name||'').trim(), schoolType=String(body.schoolType||'').trim(), city=String(body.city||'').trim(), state=String(body.state||'').trim(), country=String(body.country||'India').trim(); const estimate=Number(body.approximateStudentCount)||null
       const classes=Array.isArray(body.classes)?body.classes:[]
       if(!name||!schoolType||!city||!state||!classes.length) return respond(res,400,{error:'Complete your school details and add at least one class.'})
