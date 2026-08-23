@@ -57,6 +57,32 @@ export function compactEvidence(
     total = fixedTokens + evidenceTokens
   }
 
+  // Last safe fallback: a relationship-free guidance draft. It retains only the student's
+  // decisive context and primary verified career; no programme, fee, deadline, exam, or
+  // institution fact can be generated because none is supplied.
+  if (total > config.maxInputTokens) {
+    compact.student = {
+      ...compact.student,
+      current_subjects: compact.student.current_subjects.slice(0, 4),
+      subject_affinities: compact.student.subject_affinities.slice(0, 4),
+      subject_avoidances: compact.student.subject_avoidances.slice(0, 2),
+      skills: compact.student.skills.slice(0, 3),
+      work_preferences: compact.student.work_preferences.slice(0, 3),
+      values: compact.student.values.slice(0, 3),
+      location_constraints: compact.student.location_constraints.slice(0, 2),
+      degree_route_preferences: compact.student.degree_route_preferences.slice(0, 2),
+      hard_constraints: compact.student.hard_constraints.slice(0, 4),
+      missing_profile_fields: compact.student.missing_profile_fields.slice(0, 3),
+    }
+    compact.primary_career = { ...compact.primary_career, fit_factors: compact.primary_career.fit_factors.slice(0, 3), concerns: compact.primary_career.concerns.slice(0, 2), source_record_ids: compact.primary_career.source_record_ids.slice(0, 1) }
+    compact.alternative_careers=[]; compact.verified_courses=[]; compact.verified_programmes=[]
+    compact.verified_exams=[]; compact.verified_scholarships=[]; compact.verified_relationships=[]
+    compact.verified_admission_cycles=[]; compact.source_records=[]; compact.missing_data=compact.missing_data.slice(0,3)
+    compact.personalisation={...compact.personalisation,hard_constraints:compact.personalisation.hard_constraints.slice(0,4),high_priority_preferences:[],mixed_interest_combinations:compact.personalisation.mixed_interest_combinations.slice(0,1),eligibility_risks:[],financial_constraints:compact.personalisation.financial_constraints.slice(0,1),exam_constraints:compact.personalisation.exam_constraints.slice(0,1),route_preferences:compact.personalisation.route_preferences.slice(0,1),required_personalisation_effects:compact.personalisation.required_personalisation_effects.slice(0,1)}
+    evidenceTokens = estimateTokens(compact)
+    total = fixedTokens + evidenceTokens
+  }
+
   if (total > config.maxInputTokens) {
     compact.alternative_careers = compact.alternative_careers.slice(0, 1)
     compact.verified_programmes = compact.verified_programmes.slice(0, 4)
