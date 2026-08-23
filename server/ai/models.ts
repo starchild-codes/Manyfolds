@@ -28,13 +28,18 @@ const estimatedCost = (model: CatalogueModel) =>
 
 const supportsRoadmap = (model: CatalogueModel) => {
   const supported = new Set(model.supported_parameters || [])
-  const modality = JSON.stringify(model.architecture || {}).toLowerCase()
+  const architecture = model.architecture || {}
+  const modality = JSON.stringify(architecture).toLowerCase()
+  const outputModalities = String(architecture.output_modalities || '').toLowerCase()
+  const hasTextOutput = !outputModalities || outputModalities.includes('text') || /(?:^|[^a-z])text\s*(?:→|->)/.test(modality)
   return (
     !model.id.includes(':free') &&
     !/(experimental|preview|beta)/i.test(model.id) &&
-    !/(image|audio|embedding|moderation)/.test(modality) &&
+    !/(embedding|moderation|rerank|transcription|speech)/.test(modality) &&
+    hasTextOutput &&
     (model.context_length || 0) >= 5000 &&
     supported.has('response_format') &&
+    supported.has('structured_outputs') &&
     (supported.has('max_tokens') || supported.has('max_completion_tokens'))
   )
 }
