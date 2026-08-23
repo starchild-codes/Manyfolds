@@ -35,7 +35,7 @@ export function workspaceApi(env: Record<string, string | undefined>): Plugin {
       if(!name||!schoolType||!city||!state||!classes.length) return respond(res,400,{error:'Complete your school details and add at least one class.'})
       if(memberships.length) {
         const current=memberships[0]
-        if(current.school_type&&current.city&&current.state) return respond(res,200,{workspace:current,created:false})
+        if(current.school_type&&current.city&&current.state&&current.classes?.length) return respond(res,200,{workspace:current,created:false})
         await pool.query('update organisations set name=$1,school_type=$2,city=$3,state=$4,country=$5,approximate_student_count=$6,updated_at=now() where id=$7',[name,schoolType,city,state,country,estimate,current.organisation_id])
         for(const entry of classes as Array<{name?:unknown;sections?:unknown}>){const className=String(entry.name||'').trim();if(!className)continue;const created=await pool.query('insert into school_classes(organisation_id,class_name) values($1,$2) on conflict(organisation_id,class_name) do update set class_name=excluded.class_name returning id',[current.organisation_id,className]);for(const section of Array.isArray(entry.sections)?entry.sections:[]){const label=String(section).trim();if(label)await pool.query('insert into school_sections(organisation_id,class_id,section_name) values($1,$2,$3) on conflict(class_id,section_name) do nothing',[current.organisation_id,created.rows[0].id,label])}}
         return respond(res,200,{workspace:(await context(user.id))[0],created:false})
