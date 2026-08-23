@@ -26,15 +26,15 @@ export function workspaceApi(env: Record<string, string | undefined>): Plugin {
     const user=await auth(req); const memberships=await context(user.id)
     if(req.method==='GET') return respond(res,200,{memberships})
     if(req.method==='POST' && (req.url||'').startsWith('/onboarding')) {
+      const body=await read(req); const name=String(body.name||'').trim(), schoolType=String(body.schoolType||'').trim(), city=String(body.city||'').trim(), state=String(body.state||'').trim(), country=String(body.country||'India').trim(); const estimate=Number(body.approximateStudentCount)||null
+      const classes=Array.isArray(body.classes)?body.classes:[]
+      if(!name||!schoolType||!city||!state||!classes.length) return respond(res,400,{error:'Complete your school details and add at least one class.'})
       if(memberships.length) {
         const current=memberships[0]
         if(current.school_type&&current.city&&current.state) return respond(res,200,{workspace:current,created:false})
         await pool.query('update organisations set name=$1,school_type=$2,city=$3,state=$4,country=$5,approximate_student_count=$6,updated_at=now() where id=$7',[name,schoolType,city,state,country,estimate,current.organisation_id])
         return respond(res,200,{workspace:(await context(user.id))[0],created:false})
       }
-      const body=await read(req); const name=String(body.name||'').trim(), schoolType=String(body.schoolType||'').trim(), city=String(body.city||'').trim(), state=String(body.state||'').trim(), country=String(body.country||'India').trim(); const estimate=Number(body.approximateStudentCount)||null
-      const classes=Array.isArray(body.classes)?body.classes:[]
-      if(!name||!schoolType||!city||!state||!classes.length) return respond(res,400,{error:'Complete your school details and add at least one class.'})
       const db=await pool.connect(); try { await db.query('begin'); const existing=await db.query('select organisation_id::text,role from organisation_memberships where user_id=$1 and active limit 1',[user.id]); if(existing.rowCount){await db.query('commit');return respond(res,200,{workspace:(await context(user.id))[0],created:false})}
         const slug=`school-${user.id.replaceAll('-','')}`; const organisation=await db.query(`insert into organisations(name,slug,school_type,city,state,country,approximate_student_count,created_by) values($1,$2,$3,$4,$5,$6,$7,$8) returning id::text,name,school_type,city,state,country,approximate_student_count`,[name,slug,schoolType,city,state,country,estimate,user.id]); const workspace=organisation.rows[0]
         await db.query(`insert into organisation_memberships(organisation_id,user_id,role) values($1,$2,'owner')`,[workspace.id,user.id])
