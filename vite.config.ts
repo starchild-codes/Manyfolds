@@ -1,14 +1,11 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { Client, Pool } from 'pg'
 import { aiRoadmapApi } from './server/ai/plugin.ts'
 import { authenticateRoadmapRequest, AuthenticationError } from './server/ai/auth.ts'
 import { createAiConfig } from './server/ai/config.ts'
 
-const localEnv = existsSync('.env.local')
-  ? Object.fromEntries(readFileSync('.env.local', 'utf8').split(/\r?\n/).filter(line => /^[A-Z0-9_]+=/.test(line)).map(line => [line.slice(0,line.indexOf('=')),line.slice(line.indexOf('=')+1)]))
-  : {}
+const localEnv = loadEnv('development', process.cwd(), '')
 // Deployment hosts provide environment variables directly; local values only fill absent keys.
 const env: Record<string, string | undefined> = { ...localEnv, ...process.env }
 const map = { Career:['careers','career_id','title','description','division_title','source_name','source_url','last_reviewed','verification_status'], Course:['courses','course_id','course_name','description','field','source_basis','source_url','publish_recommendation','verification_status'], College:['institutions','institution_id','institution_name','institution_type','state','source_name','source_url','last_reviewed','verification_status'], Exam:['exams','exam_id','exam_name','typical_purpose','category','conducting_body','official_url','last_reviewed','verification_status'], Scholarship:['scholarships','scholarship_id','scholarship_name','eligibility_summary','category','provider','official_url','last_reviewed','verification_status'] } as const

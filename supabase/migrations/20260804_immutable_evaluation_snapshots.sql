@@ -1,5 +1,7 @@
 -- Phase 1: immutable snapshots for future evaluation calls. Legacy rows are deliberately not backfilled.
 alter table ai_evaluation_calls
+  add column if not exists prompt_version text,
+  add column if not exists schema_version text,
   add column if not exists snapshot_status text not null default 'legacy_unverifiable' check (snapshot_status in ('snapshot_complete','snapshot_incomplete','legacy_unverifiable','integrity_failed')),
   add column if not exists profile_fixture_snapshot jsonb,
   add column if not exists evidence_package_snapshot jsonb,
