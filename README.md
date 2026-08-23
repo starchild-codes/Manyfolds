@@ -40,10 +40,16 @@ Use `npm run build` for a production bundle and `npm run lint` for static checks
 - Career information must be verified, sourced, and date-stamped before production publication.
 - No deterministic career verdicts: the product supports counsellor judgement.
 
-## Current implementation
+## Controlled release configuration
 
-The responsive React application runs at repository root and includes working navigation, student search, student creation, record detail, follow-up completion feedback, and shareable-summary feedback. It is set up as a UI foundation for the database-backed production workflows described in [Product_info.md](./Product_info.md).
+This release is for authenticated counsellors only. Apply the Supabase migrations before using real student records, assign each staff account an active `organisation_memberships` row, and configure Google OAuth to redirect to `<production-origin>/auth/callback` (and `http://localhost:5173/auth/callback` locally).
 
-## Production backend checklist
+The server endpoints verify the Supabase access token and derive the counsellor identity from it; they never accept a counsellor identity from the browser. Keep `DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `OPENROUTER_API_KEY` only in the server environment. A static host cannot serve the `/api/*` endpoints: deploy the Vite server integration to a Node-capable host or move those handlers to serverless functions before production.
 
-Before deploying real student records, add a relational database and enforce school-level isolation in database policies; implement staff authentication, audit logs, encrypted/signed document storage, CSV import validation and rollback, report exports, and the verified-content review workflow. Never put student data into front-end source files.
+For the current development and preview server, use:
+
+```powershell
+npm run dev -- --host localhost --port 5173
+```
+
+Never put real student data into front-end source files.
