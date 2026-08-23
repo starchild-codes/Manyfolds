@@ -4,6 +4,7 @@ import { Client, Pool } from 'pg'
 import { aiRoadmapApi } from './server/ai/plugin.ts'
 import { authenticateRoadmapRequest, AuthenticationError } from './server/ai/auth.ts'
 import { createAiConfig } from './server/ai/config.ts'
+import { workspaceApi } from './server/workspace/plugin.ts'
 
 const localEnv = loadEnv('development', process.cwd(), '')
 // Deployment hosts provide environment variables directly; local values only fill absent keys.
@@ -53,4 +54,4 @@ function counsellorApi(): Plugin {
     },
   }
 }
-export default defineConfig({ plugins:[react(),knowledgeApi(),counsellorApi(),aiRoadmapApi(env)], define:{__MANYFOLDS_SUPABASE_URL__:JSON.stringify(env.SUPABASE_URL||''),__MANYFOLDS_SUPABASE_ANON_KEY__:JSON.stringify(env.SUPABASE_ANON_KEY||env.PUBLISHABLE_KEY||'')} })
+export default defineConfig({ plugins:[react(),knowledgeApi(),counsellorApi(),workspaceApi(env),aiRoadmapApi(env)], define:{__MANYFOLDS_SUPABASE_URL__:JSON.stringify(env.SUPABASE_URL||''),__MANYFOLDS_SUPABASE_ANON_KEY__:JSON.stringify(env.SUPABASE_ANON_KEY||env.PUBLISHABLE_KEY||'')} })
