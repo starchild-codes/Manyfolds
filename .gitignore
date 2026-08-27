@@ -24,3 +24,10 @@ reports/*.json
 *.njsproj
 *.sln
 *.sw?
+
+.vercel
+
+# Generated and unrelated local artifacts
+output/
+tmp/
+docs/evaluation-results/

@@ -1,0 +1,14 @@
+node_modules
+tmp
+data
+docs
+imports
+output
+server
+supabase
+.git
+*.log
+.env.local
+DATA_SOURCES.md
+KNOWLEDGE_BASE_ADMIN.md
+Product_info.md

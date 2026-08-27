@@ -24,6 +24,7 @@
     "csv-parse": "^7.0.1",
     "lucide-react": "^1.25.0",
     "pg": "^8.22.0",
+    "phaser": "^4.2.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "recharts": "^3.10.0"
