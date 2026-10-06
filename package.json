@@ -14,6 +14,9 @@
     "ai:evaluate:aggregate": "node scripts/aggregate-roadmap-evaluation.mjs",
     "ai:evaluate:persist": "node scripts/persist-roadmap-evaluation.mjs",
     "test:rls": "node scripts/rls-isolation-test.mjs",
+    "data:sources:check:apply": "node scripts/check-catalogue-sources.mjs --apply",
+    "data:scholarships:stage:apply": "node scripts/stage-nsp-scholarships.mjs --apply",
+    "data:verified:coverage": "node scripts/verified-data-coverage.mjs",
     "test:evaluation-persistence": "node scripts/evaluation-persistence-test.mjs",
     "data:audit": "node scripts/data-audit.mjs",
     "data:import-pack": "node scripts/import-database-pack.mjs"

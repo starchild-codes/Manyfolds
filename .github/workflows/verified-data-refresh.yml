@@ -1,0 +1,33 @@
+name: Verify official data sources
+
+on:
+  schedule:
+    - cron: '30 0 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: verified-data-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.MANYFOLDS_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Check official sources and stage NSP cards
+        if: env.DATABASE_URL != ''
+        run: |
+          npm run data:sources:check:apply
+          npm run data:scholarships:stage:apply
+          npm run data:verified:coverage
+      - name: Explain missing database connection
+        if: env.DATABASE_URL == ''
+        run: echo 'Set the MANYFOLDS_DATABASE_URL repository secret to enable the scheduled source refresh.'
