@@ -38,6 +38,12 @@ export type PendingProgramme = {
 }
 
 export type VerificationWorkspace = {
+  gapStats: { stale_claims: number; conflicting_claims: number; expired_claims: number; verified_relationship_claims: number; programmes_missing_fees: number; pending_candidates: number }
+  stateCoverage: Array<{ state: string; total: number; published: number }>
+  candidates: Array<{ candidate_key: string; entity_type: string; source_url: string; source_cycle: string; payload: { name?: string; deadline?: string; applicationState?: string; applicationMode?: string }; detected_at: string; status: string }>
+  coverage: Array<{ category: string; total: number; published: number }>
+  claimStats: Array<{ verification_status: string; total: number }>
+  sourceMonitors: Array<{ monitor_key: string; source_url: string; source_kind: string; entity_scope: string; last_checked_at: string | null; last_http_status: number | null; changed_at: string | null; next_check_at: string | null }>
   tasks: VerificationTask[]
   programmes: PendingProgramme[]
   queueCounts: Array<{ task_type: string; count: number }>
@@ -75,6 +81,11 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
 
 export const getVerificationWorkspace = () =>
   request<VerificationWorkspace>('/api/verification')
+
+export const reviewImportCandidate = (key: string, action: 'publish' | 'reject', notes: string) =>
+  request<{ candidateKey: string; status: string }>(`/api/verification/candidates/${encodeURIComponent(key)}`, {
+    method: 'PATCH', body: JSON.stringify({ action, notes }),
+  })
 
 export const updateVerificationTask = (
   id: string,

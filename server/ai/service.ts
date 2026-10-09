@@ -78,7 +78,7 @@ export class RoadmapService {
       generated_at: string
       updated_at: string
       model_generated_notice: string
-      validation_errors: string[]
+      validation_errors: unknown
       evidence_snapshot_id: string
     },
     cached: boolean,
@@ -88,6 +88,10 @@ export class RoadmapService {
       [row.evidence_snapshot_id],
     )
     const evidence = evidenceResult.rows[0]?.evidence as RoadmapEvidencePackage | undefined
+    if (evidence) {
+      const validation = parseAndValidateRoadmap(row.roadmap, evidence)
+      if (!validation.schemaValid || !validation.factualValid) return null
+    }
     return {
       id: row.id,
       roadmap: row.roadmap,
@@ -95,8 +99,18 @@ export class RoadmapService {
       generatedAt: row.generated_at,
       updatedAt: row.updated_at,
       notice: row.model_generated_notice,
-      validationWarnings: row.validation_errors || [],
+      validationWarnings: Array.isArray(row.validation_errors)
+        ? row.validation_errors.filter((item): item is string => typeof item === 'string')
+        : [],
       sources: evidence?.source_records || [],
+      verifiedDates: (evidence?.verified_admission_cycles || [])
+        .filter((cycle) => Boolean(cycle.application_deadline))
+        .map((cycle) => ({
+          deadline: cycle.application_deadline,
+          cycle: cycle.cycle,
+          programmeName: evidence?.verified_programmes.find((programme) => programme.programme_id === cycle.programme_id)?.programme_name || 'Programme',
+          sourceUrl: evidence?.source_records.find((source) => cycle.source_record_ids.includes(source.record_id))?.source_url || '',
+        })),
       missingData: evidence?.missing_data || [],
       cached,
     }
@@ -120,6 +134,7 @@ export class RoadmapService {
       if (!request.profile || !request.primaryCareer?.name) {
         throw new RoadmapServiceError('A completed profile and selected career are required.')
       }
+      if(request.studentExternalId){const student=await this.pool.query('select 1 from student_registry_records where organisation_id=$1 and external_key=$2',[auth.organisationId,request.studentExternalId]);if(!student.rowCount)throw new RoadmapServiceError('This student is unavailable in your school.',404)}
       const evidence = await buildEvidencePackage(this.pool, auth, request)
       const compacted = compactEvidence(evidence, this.config)
       const studentExternalId = compacted.evidence.student.student_id
@@ -148,7 +163,10 @@ export class RoadmapService {
            limit 1`,
           [auth.organisationId, studentExternalId, generationHash],
         )
-        if (cached.rowCount) return this.safeGenerationResponse(cached.rows[0], true)
+        if (cached.rowCount) {
+          const cachedGeneration = await this.safeGenerationResponse(cached.rows[0], true)
+          if (cachedGeneration) return cachedGeneration
+        }
       }
 
       await queueVerificationNeeds(this.pool, auth, this.config, compacted.evidence)
@@ -188,7 +206,10 @@ export class RoadmapService {
       let sessionReportedCost = 0
       let sessionEstimatedCost = 0
       let sessionLatencyMs = 0
-      for (const model of models.slice(0, 2)) {
+      let retryPrimary = false
+      const attempts = [models[0], models[0], models[1]].filter(Boolean)
+      for (const [index, model] of attempts.entries()) {
+        if (index === 1 && !retryPrimary) continue
         attempt += 1
         const maxOutput = remainingOutputBudget(
           this.config,
@@ -204,6 +225,7 @@ export class RoadmapService {
             compacted.evidence,
             maxOutput,
             model.supportsReasoning,
+            index === 1,
           )
           const conservativeInput = Math.max(
             response.usage.inputTokens,
@@ -240,7 +262,7 @@ export class RoadmapService {
             ],
           )
           if (usedTokens > this.config.maxTotalTokens) {
-            throw new TokenBudgetError('The provider reported usage above the 5,000-token ceiling.')
+            throw new TokenBudgetError('The provider reported usage above the session token ceiling.')
           }
 
           const validation = parseAndValidateRoadmap(response.rawRoadmap, compacted.evidence)
@@ -253,11 +275,24 @@ export class RoadmapService {
           )
           if (!validation.schemaValid || !validation.roadmap) {
             lastError = new Error('Invalid structured response')
+            if (index === 0) retryPrimary = true
             await this.pool.query(
               `insert into ai_validation_failures
                (organisation_id,session_id,validation_stage,errors,repaired_locally)
                values($1,$2,'schema',$3,false)`,
-              [auth.organisationId, sessionId, validation.errors],
+              [auth.organisationId, sessionId, JSON.stringify(validation.errors)],
+            )
+            continue
+          }
+
+          if (!validation.factualValid) {
+            lastError = new Error('Roadmap contained unsupported factual claims or omitted constraints')
+            if (index === 0) retryPrimary = true
+            await this.pool.query(
+              `insert into ai_validation_failures
+               (organisation_id,session_id,validation_stage,errors,repaired_locally)
+               values($1,$2,'factual',$3,$4)`,
+              [auth.organisationId, sessionId, JSON.stringify(validation.errors), validation.repaired],
             )
             continue
           }
@@ -267,7 +302,7 @@ export class RoadmapService {
               `insert into ai_validation_failures
                (organisation_id,session_id,validation_stage,errors,repaired_locally)
                values($1,$2,'factual',$3,$4)`,
-              [auth.organisationId, sessionId, validation.errors, validation.repaired],
+              [auth.organisationId, sessionId, JSON.stringify(validation.errors), validation.repaired],
             )
           }
 
@@ -335,7 +370,7 @@ export class RoadmapService {
                 missing: compacted.evidence.missing_data.length,
               },
               validation.factualValid,
-              validation.errors,
+              JSON.stringify(validation.errors),
             ],
           )
           const generationId = generation.rows[0].id as string
@@ -359,7 +394,7 @@ export class RoadmapService {
               sessionEstimatedCost || null,
               sessionReportedCost || null,
               validation.factualValid,
-              validation.errors,
+              JSON.stringify(validation.errors),
               attempt - 1,
               sessionLatencyMs,
             ],
@@ -367,8 +402,14 @@ export class RoadmapService {
           return this.safeGenerationResponse(generation.rows[0], false)
         } catch (error) {
           lastError = error instanceof Error ? error : new Error('Provider failure')
+          console.error('AI roadmap model attempt failed', {
+            modelId: model.id,
+            kind: lastError.name,
+            providerStatus: error instanceof OpenRouterError ? error.statusCode : null,
+          })
           if (error instanceof OpenRouterError) {
             await recordModelHealth(this.pool, model.id, false, 0, false).catch(() => {})
+            if (index === 0 && /invalid structured response|invalid response|empty response/.test(error.message)) retryPrimary = true
           }
           if (error instanceof TokenBudgetError) break
           if (error instanceof OpenRouterError && !error.retryable) break
@@ -395,11 +436,16 @@ export class RoadmapService {
           sessionReportedCost || null,
           Math.max(0, attempt - 1),
           sessionLatencyMs || null,
-          [lastError?.message || 'Generation failed'],
+          JSON.stringify([lastError?.message || 'Generation failed']),
         ],
       )
       throw lastError || new RoadmapServiceError('No model attempt fit within the session token budget.')
     } catch (error) {
+      console.error('AI roadmap generation failed', {
+        kind: error instanceof Error ? error.name : 'UnknownError',
+        code: error && typeof error === 'object' && 'code' in error ? String(error.code) : null,
+        providerStatus: error instanceof OpenRouterError ? error.statusCode : null,
+      })
       throw safeError(error)
     }
   }
@@ -456,14 +502,16 @@ export class RoadmapService {
     if (!existing.rowCount) throw new RoadmapServiceError('Roadmap not found.', 404)
     const row = existing.rows[0]
     let roadmap = row.roadmap as RoadmapOutput
-    let validationErrors = row.validation_errors as string[]
+    let validationErrors = Array.isArray(row.validation_errors)
+      ? row.validation_errors.filter((item: unknown): item is string => typeof item === 'string')
+      : []
     if (payload.roadmap) {
       const validation = parseAndValidateRoadmap(
         payload.roadmap,
         row.evidence as RoadmapEvidencePackage,
       )
-      if (!validation.schemaValid || !validation.roadmap) {
-        throw new RoadmapServiceError('The edited roadmap is not structurally valid.', 422)
+      if (!validation.schemaValid || !validation.factualValid || !validation.roadmap) {
+        throw new RoadmapServiceError('The edited roadmap did not pass validation.', 422)
       }
       roadmap = validation.roadmap
       validationErrors = validation.errors
@@ -487,7 +535,7 @@ export class RoadmapService {
         typeof payload.counsellorNotes === 'string'
           ? payload.counsellorNotes.slice(0, 4000)
           : row.counsellor_notes,
-        validationErrors,
+        JSON.stringify(validationErrors),
       ],
     )
     return this.safeGenerationResponse(updated.rows[0], false)

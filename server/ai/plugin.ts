@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { Pool } from 'pg'
+import { attachDatabasePool, getDatabasePool } from '../database.ts'
 import type { Plugin } from 'vite'
 import { authenticateRoadmapRequest, AuthenticationError } from './auth.ts'
 import { createAiConfig } from './config.ts'
@@ -29,15 +29,10 @@ const readJson = async (req: IncomingMessage) => {
 
 export function aiRoadmapApi(env: Record<string, string | undefined>): Plugin {
   const config = createAiConfig(env)
-  const pool = new Pool({
-    connectionString: config.databaseUrl,
-    ssl: { rejectUnauthorized: false },
-    max: 2,
-    idleTimeoutMillis: 10_000,
-    allowExitOnIdle: true,
-  })
+  const pool = getDatabasePool(config.databaseUrl)
   const service = new RoadmapService(pool, config)
-  const verificationAdmin = new VerificationAdminService(pool)
+  const curatorIds = new Set((env.MANYFOLDS_CATALOGUE_CURATOR_IDS || '').split(',').map(id => id.trim()).filter(Boolean))
+  const verificationAdmin = new VerificationAdminService(pool, curatorIds)
 
   const middleware = async (
     req: IncomingMessage,
@@ -56,6 +51,15 @@ export function aiRoadmapApi(env: Record<string, string | undefined>): Plugin {
           const auth = await authenticateRoadmapRequest(req, pool, config)
           if (req.method === 'GET' && url.pathname === '/api/verification') {
             json(res, 200, await verificationAdmin.list(auth))
+            return
+          }
+          const candidate = url.pathname.match(/^\/api\/verification\/candidates\/(.+)$/)
+          if (req.method === 'PATCH' && candidate) {
+            const body = await readJson(req)
+            json(res, 200, await verificationAdmin.reviewCandidate(auth, decodeURIComponent(candidate[1]), {
+              action: typeof body.action === 'string' ? body.action : undefined,
+              notes: typeof body.notes === 'string' ? body.notes : undefined,
+            }))
             return
           }
           const verificationTask = url.pathname.match(
@@ -113,12 +117,14 @@ export function aiRoadmapApi(env: Record<string, string | undefined>): Plugin {
             return
           }
           if (req.method === 'POST' && url.pathname === '/api/ai-roadmaps') {
+            if(auth.role==='teacher')throw new AuthenticationError('Your role can view roadmaps but cannot generate them.',403)
             const body = (await readJson(req)) as GenerationRequest
             json(res, 200, { generation: await service.generate(auth, body) })
             return
           }
           const match = url.pathname.match(/^\/api\/ai-roadmaps\/([0-9a-f-]+)$/i)
           if (req.method === 'PATCH' && match) {
+            if(auth.role==='teacher')throw new AuthenticationError('Your role can view roadmaps but cannot change them.',403)
             const body = await readJson(req)
             json(res, 200, {
               generation: await service.update(auth, match[1], {
@@ -146,12 +152,11 @@ export function aiRoadmapApi(env: Record<string, string | undefined>): Plugin {
     name: 'manyfolds-ai-roadmap-api',
     configureServer(server) {
       server.middlewares.use(middleware)
-      server.httpServer?.once('close', () => {
-        void pool.end()
-      })
+      attachDatabasePool(pool,server.httpServer)
     },
     configurePreviewServer(server) {
       server.middlewares.use(middleware)
+      attachDatabasePool(pool,server.httpServer)
     },
   }
 }

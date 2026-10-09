@@ -8,7 +8,7 @@ export type VerificationStatus =
 
 export type CompactSourceRecord = {
   record_id: string
-  entity_type: 'career' | 'course' | 'programme' | 'exam' | 'scholarship' | 'admission_cycle'
+  entity_type: 'career' | 'course' | 'programme' | 'exam' | 'scholarship' | 'admission_cycle' | 'relationship'
   entity_id: string
   name: string
   source_url: string
@@ -106,6 +106,7 @@ export type RoadmapEvidencePackage = {
     cycle_id: string
     programme_id: string
     cycle: string
+    application_deadline?: string | null
     source_record_ids: string[]
   }>
   source_records: CompactSourceRecord[]

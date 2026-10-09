@@ -29,13 +29,13 @@ const list = (value: string | undefined) =>
     .filter(Boolean)
 
 export function createAiConfig(env: Record<string, string | undefined>): AiConfig {
-  const primaryModel = (env.OPENROUTER_PRIMARY_MODEL || '').trim()
-  const fallbackModels = list(env.OPENROUTER_FALLBACK_MODELS).filter(
+  const primaryModel = (env.OPENROUTER_PRIMARY_MODEL || 'mistralai/mistral-small-3.2-24b-instruct').trim()
+  const fallbackModels = list(env.OPENROUTER_FALLBACK_MODELS || env.OPENROUTER_FALLBACK_MODEL || 'openai/gpt-4.1-mini').filter(
     (model) => model !== primaryModel,
   )
   const maxInputTokens = Math.min(2800, integer(env.OPENROUTER_MAX_INPUT_TOKENS, 2800))
   const maxOutputTokens = Math.min(1700, integer(env.OPENROUTER_MAX_OUTPUT_TOKENS, 1700))
-  const maxTotalTokens = Math.min(5000, integer(env.OPENROUTER_MAX_TOTAL_TOKENS, 5000))
+  const maxTotalTokens = Math.min(9000, integer(env.OPENROUTER_MAX_TOTAL_TOKENS, 9000))
   const maxCost = Number(env.OPENROUTER_MAX_COST_USD_PER_ROADMAP)
   const maxPromptPrice = Number(env.OPENROUTER_MAX_PROMPT_PRICE_PER_TOKEN)
   const maxCompletionPrice = Number(env.OPENROUTER_MAX_COMPLETION_PRICE_PER_TOKEN)

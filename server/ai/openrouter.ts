@@ -41,6 +41,7 @@ export async function callOpenRouter(
   evidence: RoadmapEvidencePackage,
   maxOutputTokens: number,
   supportsReasoning = false,
+  correction = false,
 ): Promise<{
   rawRoadmap: unknown
   usage: GenerationUsage
@@ -58,6 +59,7 @@ export async function callOpenRouter(
       messages: [
         { role: 'system', content: ROADMAP_SYSTEM_PROMPT },
         { role: 'user', content: JSON.stringify(evidence) },
+        ...(correction ? [{ role: 'user', content: 'Your previous response failed validation. Return only JSON matching the supplied schema and evidence. Omit unsupported facts and reflect every hard constraint.' }] : []),
       ],
       temperature: 0.1,
       max_tokens: maxOutputTokens,
@@ -69,9 +71,9 @@ export async function callOpenRouter(
           schema: ROADMAP_JSON_SCHEMA,
         },
       },
-      provider: { require_parameters: true },
+      provider: { require_parameters: true, allow_fallbacks: false },
     }
-    if (supportsReasoning) body.reasoning = { effort: 'low', exclude: true }
+    if (supportsReasoning) body.reasoning = { exclude: true }
     response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -100,7 +102,12 @@ export async function callOpenRouter(
     )
   }
 
-  const payload = (await response.json()) as OpenRouterResponse
+  let payload: OpenRouterResponse
+  try {
+    payload = (await response.json()) as OpenRouterResponse
+  } catch {
+    throw new OpenRouterError('The roadmap provider returned an invalid response.', true)
+  }
   const rawText = contentText(payload.choices?.[0]?.message?.content)
   if (!rawText) throw new OpenRouterError('The roadmap provider returned an empty response.', true)
   let rawRoadmap: unknown

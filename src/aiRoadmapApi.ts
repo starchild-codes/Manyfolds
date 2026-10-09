@@ -82,6 +82,7 @@ export type AiRoadmapGeneration = {
   notice: string
   validationWarnings: string[]
   sources: AiRoadmapSource[]
+  verifiedDates: Array<{ deadline: string; cycle: string; programmeName: string; sourceUrl: string }>
   missingData: string[]
   cached: boolean
 }
@@ -113,9 +114,10 @@ const request = async (path: string, init?: RequestInit) => {
   return payload.generation || null
 }
 
-export const getLatestAiRoadmap = () => request('/api/ai-roadmaps/latest')
+export const getLatestAiRoadmap = (studentExternalId?:string) => request(`/api/ai-roadmaps/latest${studentExternalId?`?student_external_id=${encodeURIComponent(studentExternalId)}`:''}`)
 
 export const generateAiRoadmap = (body: {
+  studentExternalId?: string
   profile: Record<string, unknown>
   primaryCareer: { name: string; fitFactors: string[]; concerns: string[] }
   alternativeCareers: Array<{ name: string; fitFactors: string[]; concerns: string[] }>

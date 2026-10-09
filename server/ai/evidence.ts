@@ -31,7 +31,7 @@ const domain = (value: string) => {
   }
 }
 const status = (value: string): VerificationStatus =>
-  value === 'verified' || value === 'official_taxonomy_title' ? 'verified' : 'pending_review'
+  value === 'verified' || value === 'officially_verified' || value === 'official_taxonomy_title' ? 'verified' : 'pending_review'
 const sourceId = (type: string, id: string) => `${type}:${id}`
 
 export function summariseStudent(
@@ -218,10 +218,24 @@ export async function buildEvidencePackage(
   }
 
   const courseRows = await pool.query(
-    `select c.course_id,c.course_name,c.award_level,c.typical_duration,c.typical_entry_stage,
-            c.typical_subject_requirements,c.source_url,c.verification_status
+    `select distinct c.course_id,c.course_name,c.award_level,c.typical_duration,c.typical_entry_stage,
+            c.typical_subject_requirements,c.source_url,c.verification_status,c.last_verified_at,
+            (select relation.source_url from catalogue_claims relation
+              where relation.entity_type='career_course_relationship'
+                and relation.entity_id=l.career_id||':'||l.course_id
+                and relation.field_name='possible_study_route'
+                and relation.claim_value=to_jsonb('possible_study_route'::text)
+                and relation.verification_status='verified'
+                and (relation.expires_at is null or relation.expires_at>=(now() at time zone 'Asia/Kolkata')::date)
+              order by relation.checked_at desc limit 1) relationship_source_url
      from career_course_links l join courses c on c.course_id=l.course_id
-     where l.career_id=$1 and c.verification_status in ('verified','officially_verified')
+     where l.career_id=$1 and l.verification_status='verified'
+       and c.verification_status in ('verified','officially_verified')
+       and exists(select 1 from catalogue_claims claim
+         where claim.entity_type='course' and claim.entity_id=c.course_id
+           and claim.field_name='name' and claim.claim_value=to_jsonb(c.course_name)
+           and claim.verification_status='verified'
+           and (claim.expires_at is null or claim.expires_at>=(now() at time zone 'Asia/Kolkata')::date))
      order by c.course_name limit 5`,
     [primary.career.career_id],
   )
@@ -236,22 +250,22 @@ export async function buildEvidencePackage(
       source_domain: domain(row.source_url || ''),
       verification_status: status(row.verification_status),
       admission_cycle: null,
-      last_verified_at: null,
+      last_verified_at: row.last_verified_at || null,
     })
     const course = {
       course_id: row.course_id as string,
       name: row.course_name as string,
-      award_level: (row.award_level || '') as string,
-      duration: (row.typical_duration || '') as string,
-      entry_stage: (row.typical_entry_stage || '') as string,
-      subject_requirements: text(row.typical_subject_requirements)
-        .split(/[,;/]/)
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .slice(0, 8),
+      award_level: '',
+      duration: '',
+      entry_stage: '',
+      subject_requirements: [],
       source_record_ids: [id],
     }
-    relationships.push({ relationship_id: `rel:career_to_course:${primary.career.career_id}:${course.course_id}`, relationship_type: 'career_to_course', from_id: primary.career.career_id, to_id: course.course_id, verification_status: 'verified', source_record_ids: [primary.source.record_id, id] })
+    if (row.relationship_source_url) {
+      const relationId = sourceId('relationship', `career-course:${primary.career.career_id}:${course.course_id}`)
+      sources.push({ record_id: relationId, entity_type: 'relationship', entity_id: `${primary.career.career_id}:${course.course_id}`, name: 'Career to possible study route', source_url: row.relationship_source_url, source_domain: domain(row.relationship_source_url), verification_status: 'verified', admission_cycle: null, last_verified_at: null })
+      relationships.push({ relationship_id: `rel:career_to_course:${primary.career.career_id}:${course.course_id}`, relationship_type: 'career_to_course', from_id: primary.career.career_id, to_id: course.course_id, verification_status: 'verified', source_record_ids: [relationId] })
+    }
     return course
   })
 
@@ -260,15 +274,31 @@ export async function buildEvidencePackage(
       ? await pool.query(
           `select p.id::text programme_id,p.course_id,p.programme_name,p.duration,p.last_verified_at,
                   i.institution_name,s.source_url,s.last_verified_at source_verified_at,
-                  e.required_subjects,e.minimum_percentage
+                  e.required_subjects,e.minimum_percentage,e.admission_cycle,
+                  e.exam_id
            from institution_programmes p
            join institutions i on i.institution_id=p.institution_id
-           join institution_programme_sources s on s.institution_programme_id=p.id
-             and s.status='verified'
+           join lateral (
+             select source_url,last_verified_at from institution_programme_sources
+             where institution_programme_id=p.id and status='verified'
+             order by last_verified_at desc nulls last,id desc limit 1
+           ) s on true
            left join institution_programme_eligibility e on e.institution_programme_id=p.id
              and e.verification_status='verified'
+             and exists(select 1 from catalogue_claims claim
+               where claim.entity_type='programme' and claim.entity_id=p.institution_id||':'||p.programme_name
+                 and claim.field_name='eligibility' and claim.claim_value=to_jsonb(e.required_subjects)
+                 and claim.verification_status='verified'
+                 and (claim.expires_at is null or claim.expires_at>=(now() at time zone 'Asia/Kolkata')::date))
            where p.course_id=any($1::text[]) and p.verification_status='verified'
              and p.data_sufficient=true
+             and exists(select 1 from catalogue_claims claim
+               where claim.entity_type='programme'
+                 and claim.entity_id=p.institution_id||':'||p.programme_name
+                 and claim.field_name='offering'
+                 and claim.claim_value=to_jsonb(p.programme_name)
+                 and claim.verification_status='verified'
+                 and (claim.expires_at is null or claim.expires_at>=(now() at time zone 'Asia/Kolkata')::date))
            order by p.last_verified_at desc nulls last limit 8`,
           [verifiedCourses.map((course) => course.course_id)],
         )
@@ -283,27 +313,21 @@ export async function buildEvidencePackage(
       source_url: row.source_url || '',
       source_domain: domain(row.source_url || ''),
       verification_status: 'verified',
-      admission_cycle: null,
+      admission_cycle: row.admission_cycle || null,
       last_verified_at: row.source_verified_at || row.last_verified_at || null,
     })
     const required = Array.isArray(row.required_subjects) ? row.required_subjects : []
-    const missing = required.filter(
-      (subject: string) =>
-        !student.current_subjects.some((current) => current.toLowerCase() === subject.toLowerCase()),
-    )
     const programme = {
       programme_id: row.programme_id as string,
       institution_name: row.institution_name as string,
       programme_name: row.programme_name as string,
       course_id: row.course_id as string | null,
-      eligibility_status: missing.length
-        ? ('currently_ineligible' as const)
-        : required.length
-          ? ('eligible' as const)
-          : ('insufficient_data' as const),
+      eligibility_status: row.admission_cycle
+        ? ('conditionally_eligible' as const)
+        : ('insufficient_data' as const),
       required_subjects: required,
-      admission_route_summary: '',
-      admission_cycle: null,
+      admission_route_summary: row.exam_id ? `Admission route includes ${row.exam_id.replace('exam-', '').replaceAll('-', ' ').toUpperCase()}; confirm the current cycle and all category rules.` : '',
+      admission_cycle: row.admission_cycle || null,
       last_verified_at: row.source_verified_at || row.last_verified_at || null,
       source_record_ids: [id],
     }
@@ -314,10 +338,24 @@ export async function buildEvidencePackage(
   const examRows =
     verifiedCourses.length > 0
       ? await pool.query(
-          `select distinct e.exam_id,e.exam_name,e.typical_purpose,e.official_url,e.verification_status,e.last_reviewed
+          `select e.exam_id,e.exam_name,e.typical_purpose,e.official_url,e.verification_status,e.last_reviewed,
+                  array_agg(distinct l.course_id) linked_course_ids,
+                  min(relation.source_url) relationship_source_url
            from exam_course_links l join exams e on e.exam_id=l.exam_id
-           where l.course_id=any($1::text[]) and e.verification_status='verified'
-           order by e.exam_name limit 8`,
+           join catalogue_claims relation on relation.entity_type='course_exam_relationship'
+             and relation.entity_id=l.course_id||':'||l.exam_id
+             and relation.field_name='admission_route'
+             and relation.claim_value=to_jsonb('admission_route'::text)
+             and relation.verification_status='verified'
+             and (relation.expires_at is null or relation.expires_at>=(now() at time zone 'Asia/Kolkata')::date)
+           where l.course_id=any($1::text[]) and l.verification_status='verified'
+             and e.verification_status='verified'
+             and exists(select 1 from catalogue_claims claim
+               where claim.entity_type='exam' and claim.entity_id=e.exam_id
+                 and claim.field_name='name' and claim.claim_value=to_jsonb(e.exam_name)
+                 and claim.verification_status='verified'
+                 and (claim.expires_at is null or claim.expires_at>=(now() at time zone 'Asia/Kolkata')::date))
+           group by e.exam_id order by e.exam_name limit 8`,
           [verifiedCourses.map((course) => course.course_id)],
         )
       : { rows: [] }
@@ -337,11 +375,52 @@ export async function buildEvidencePackage(
     const exam = {
       exam_id: row.exam_id as string,
       name: row.exam_name as string,
-      purpose: (row.typical_purpose || '') as string,
+      purpose: '',
       source_record_ids: [id],
     }
-    for (const course of verifiedCourses) relationships.push({ relationship_id: `rel:course_to_exam:${course.course_id}:${exam.exam_id}`, relationship_type: 'course_to_exam', from_id: course.course_id, to_id: exam.exam_id, verification_status: 'verified', source_record_ids: [id] })
+    for (const course of verifiedCourses.filter((item) => row.linked_course_ids.includes(item.course_id))) {
+      const relationId = sourceId('relationship', `course-exam:${course.course_id}:${exam.exam_id}`)
+      sources.push({ record_id: relationId, entity_type: 'relationship', entity_id: `${course.course_id}:${exam.exam_id}`, name: 'Course admission examination route', source_url: row.relationship_source_url, source_domain: domain(row.relationship_source_url), verification_status: 'verified', admission_cycle: null, last_verified_at: null })
+      relationships.push({ relationship_id: `rel:course_to_exam:${course.course_id}:${exam.exam_id}`, relationship_type: 'course_to_exam', from_id: course.course_id, to_id: exam.exam_id, verification_status: 'verified', source_record_ids: [relationId] })
+    }
     return exam
+  })
+
+  const cycleRows = verifiedProgrammes.length
+    ? await pool.query(
+        `select cycle.id::text cycle_id,cycle.cycle_year,cycle.registration_close::text application_deadline,
+                cycle.official_url,p.id::text programme_id,p.programme_name,p.last_verified_at
+         from college_program_application_cycles cycle
+         join college_program_admission_routes route on route.id=cycle.admission_route_id
+         join institution_programmes p on p.id=route.institution_programme_id
+         where p.id=any($1::uuid[]) and cycle.verification_status='verified'
+           and cycle.registration_close>=(now() at time zone 'Asia/Kolkata')::date
+           and exists(select 1 from catalogue_claims claim
+             where claim.entity_type='programme_cycle'
+               and claim.entity_id=p.institution_id||':'||p.programme_name||':'||cycle.cycle_year
+               and claim.field_name='application_deadline'
+               and claim.claim_value=to_jsonb(cycle.registration_close::text)
+               and claim.verification_status='verified'
+               and (claim.expires_at is null or claim.expires_at>=(now() at time zone 'Asia/Kolkata')::date))
+         order by cycle.registration_close limit 6`,
+        [verifiedProgrammes.map((programme) => programme.programme_id)],
+      )
+    : { rows: [] }
+  const verifiedAdmissionCycles = cycleRows.rows.map((row) => {
+    const id = sourceId('admission_cycle', row.cycle_id as string)
+    sources.push({
+      record_id: id,
+      entity_type: 'admission_cycle',
+      entity_id: row.cycle_id,
+      name: `${row.programme_name} ${row.cycle_year} application cycle`,
+      source_url: row.official_url,
+      source_domain: domain(row.official_url),
+      verification_status: 'verified',
+      admission_cycle: row.cycle_year,
+      last_verified_at: row.last_verified_at,
+    })
+    relationships.push({ relationship_id: `rel:programme_to_admission_cycle:${row.programme_id}:${row.cycle_id}`, relationship_type: 'programme_to_admission_cycle', from_id: row.programme_id, to_id: row.cycle_id, verification_status: 'verified', source_record_ids: [id] })
+    return { cycle_id: row.cycle_id as string, programme_id: row.programme_id as string, cycle: row.cycle_year as string, application_deadline: row.application_deadline as string, source_record_ids: [id] }
   })
 
   const missingData = [...student.missing_profile_fields.map((field) => `Profile missing: ${field}`)]
@@ -350,17 +429,12 @@ export async function buildEvidencePackage(
     missingData.push('No verified institution-programme and eligibility records are available.')
   }
   if (!verifiedExams.length) missingData.push('No directly relevant examination record is currently verified.')
-  missingData.push('Current scholarship relationships and admission cycles are not verified.')
+  missingData.push('Current scholarship relationships are not verified.')
+  if (!verifiedAdmissionCycles.length) missingData.push('No upcoming programme application deadline is verified for this pathway.')
 
-  const eligibilityStatuses = verifiedProgrammes.map((programme) => programme.eligibility_status)
-  const deterministicStatus =
-    !verifiedProgrammes.length
-      ? ('insufficient_data' as const)
-      : eligibilityStatuses.every((value) => value === 'currently_ineligible')
-        ? ('currently_ineligible' as const)
-        : eligibilityStatuses.some((value) => value === 'eligible')
-          ? ('eligible' as const)
-          : ('conditionally_eligible' as const)
+  const deterministicStatus = verifiedProgrammes.some((programme) => programme.eligibility_status === 'conditionally_eligible')
+    ? ('conditionally_eligible' as const)
+    : ('insufficient_data' as const)
 
   return {
     student,
@@ -371,14 +445,14 @@ export async function buildEvidencePackage(
     verified_exams: verifiedExams,
     verified_scholarships: [],
     verified_relationships: relationships,
-    verified_admission_cycles: [],
+    verified_admission_cycles: verifiedAdmissionCycles,
     source_records: sources,
     deterministic_eligibility: {
       status: deterministicStatus,
       missing_requirements:
         deterministicStatus === 'insufficient_data'
           ? ['Verified programme-level eligibility records']
-          : [],
+          : ['Individual marks, age and category rules, documents, examination results, and current seat allocation remain to be checked'],
     },
     missing_data: missingData,
     personalisation: { hard_constraints: student.hard_constraints, high_priority_preferences: [], mixed_interest_combinations: student.subject_affinities.length > 1 ? [student.subject_affinities.slice(0, 3).join(' + ')] : [], eligibility_risks: student.hard_constraints.filter((item) => /missing|required/i.test(item)), financial_constraints: student.hard_constraints.filter((item) => /budget|cost|fee|tuition/i.test(item)), exam_constraints: student.hard_constraints.filter((item) => /exam/i.test(item)), route_preferences: student.degree_route_preferences.slice(0, 2), required_personalisation_effects: [{ profile_factor: 'student_profile', roadmap_sections_affected: ['summary', 'next_actions'] }] },

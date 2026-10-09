@@ -3,6 +3,7 @@ import type { IncomingMessage } from 'node:http'
 import type { Pool } from 'pg'
 import type { AiConfig } from './config.ts'
 import type { AuthContext } from './types.ts'
+import { readDatabase } from '../database.ts'
 
 export class AuthenticationError extends Error {
   readonly statusCode: number
@@ -20,7 +21,7 @@ export async function authenticateRoadmapRequest(
 ): Promise<AuthContext> {
   const header = req.headers.authorization || ''
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : ''
-  if (!token) throw new AuthenticationError('Sign in is required to generate a roadmap.')
+  if (!token) throw new AuthenticationError('Sign in is required to continue.')
   if (!config.supabaseUrl || !config.supabaseAnonKey) {
     throw new AuthenticationError('Authentication service is not configured.', 503)
   }
@@ -33,7 +34,7 @@ export async function authenticateRoadmapRequest(
 
   let membership
   try {
-    membership = await pool.query(
+    membership = await readDatabase(pool,
       `select organisation_id::text,role
        from organisation_memberships
        where user_id=$1 and active

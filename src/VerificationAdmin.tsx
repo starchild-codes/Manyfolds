@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   getVerificationWorkspace,
+  reviewImportCandidate,
   reviewProgrammeCandidate,
   saveProgrammeCandidate,
   updateVerificationTask,
@@ -99,6 +100,21 @@ export default function VerificationAdmin({ notify }: { notify: (message: string
     }
   }
 
+  const reviewListing = async (key: string, action: 'publish' | 'reject') => {
+    const notes = window.prompt('Review the official listing, then record what you checked (required)')?.trim()
+    if (!notes) return
+    setBusy(key)
+    try {
+      await reviewImportCandidate(key, action, notes)
+      await refresh()
+      notify(action === 'publish' ? 'Listing published with its verified window' : 'Listing rejected')
+    } catch (nextError) {
+      notify(nextError instanceof Error ? nextError.message : 'Could not review listing')
+    } finally {
+      setBusy('')
+    }
+  }
+
   return (
     <div className="content verification-admin">
       <section className="verification-hero">
@@ -117,6 +133,42 @@ export default function VerificationAdmin({ notify }: { notify: (message: string
       </section>
 
       {error && <div className="ai-roadmap-error" role="alert">{error}</div>}
+
+      <section className="panel verification-coverage" aria-label="Verified catalogue coverage">
+        <div className="panel-heading"><div><p className="eyebrow">Publication coverage</p><h2>Verified data available to students</h2></div></div>
+        <div className="verification-coverage-grid">
+          {(workspace?.coverage || []).map((item) => <div key={item.category}><b>{item.published.toLocaleString()}</b><span>{item.category}</span><small>of {item.total.toLocaleString()} catalogue records</small></div>)}
+        </div>
+        <p className="review">Career counts cover occupation titles only. Scholarship counts cover verified scheme listings and stated windows, not personal eligibility.</p>
+        <p className="verification-claim-stats">Claims: {(workspace?.claimStats || []).map((item) => `${item.total} ${item.verification_status.replaceAll('_', ' ')}`).join(' · ') || 'No reviewed claims yet'}</p>
+      </section>
+
+      <section className="panel verification-coverage" aria-label="Verification gaps">
+        <div className="panel-heading"><div><p className="eyebrow">What still needs evidence</p><h2>Gaps and review pressure</h2></div></div>
+        <div className="verification-coverage-grid">
+          <div><b>{workspace?.gapStats.programmes_missing_fees ?? '—'}</b><span>Programme fees missing</span><small>No current verified fee claim</small></div>
+          <div><b>{workspace?.gapStats.pending_candidates ?? '—'}</b><span>Imports awaiting review</span><small>Unpublished source cards</small></div>
+          <div><b>{workspace?.gapStats.verified_relationship_claims ?? '—'}</b><span>Verified relationship claims</span><small>Career and admission links</small></div>
+          <div><b>{workspace?.gapStats.stale_claims ?? '—'}</b><span>Stale claims</span><small>Withheld until rechecked</small></div>
+          <div><b>{workspace?.gapStats.conflicting_claims ?? '—'}</b><span>Conflicting claims</span><small>Withheld pending resolution</small></div>
+          <div><b>{workspace?.gapStats.expired_claims ?? '—'}</b><span>Expired claims</span><small>Outside their verified cycle</small></div>
+        </div>
+        <p className="review">Verified institution names by state: {(workspace?.stateCoverage || []).map((item) => `${item.state} ${item.published}/${item.total}`).join(' · ') || 'No state coverage yet'}.</p>
+      </section>
+
+      <section className="panel verification-coverage" aria-label="Official source monitoring">
+        <div className="panel-heading"><div><p className="eyebrow">Source freshness</p><h2>Official pages being checked</h2></div></div>
+        <div className="verification-source-list">{(workspace?.sourceMonitors || []).map((source) => <div key={source.monitor_key}><a href={source.source_url} target="_blank" rel="noreferrer">{source.monitor_key}</a><span>{source.last_http_status === 200 ? 'Reachable' : source.last_http_status ? `HTTP ${source.last_http_status}` : 'Check pending or failed'}</span><small>{source.last_checked_at ? `Checked ${new Date(source.last_checked_at).toLocaleString()}` : 'Not checked yet'}{source.changed_at ? ` · Changed ${new Date(source.changed_at).toLocaleString()}` : ''}</small></div>)}</div>
+      </section>
+
+      <section className="panel verification-programmes" aria-label="Imported scholarship listing review">
+        <div className="panel-heading"><div><p className="eyebrow">Imported from NSP</p><h2>Scholarship listings awaiting review</h2></div><span className="count">{workspace?.candidates.length || 0} pending</span></div>
+        <p className="review">Check each name, application mode, and deadline on the official portal. Publishing verifies only the listing and stated window; it does not verify award amount or personal eligibility.</p>
+        {(workspace?.candidates || []).map((candidate) => <article key={candidate.candidate_key}>
+          <div><b>{candidate.payload.name}</b><small>{candidate.source_cycle} · {candidate.payload.applicationMode === 'renewal' ? 'Renewal only' : 'General applications'} · closes {candidate.payload.deadline} · staged {new Date(candidate.detected_at).toLocaleString()}</small></div>
+          <div className="verification-actions"><a href={candidate.source_url} target="_blank" rel="noreferrer">Official listing ↗</a><button disabled={busy === candidate.candidate_key} onClick={() => void reviewListing(candidate.candidate_key, 'publish')}>Publish listing</button><button disabled={busy === candidate.candidate_key} onClick={() => void reviewListing(candidate.candidate_key, 'reject')}>Reject</button></div>
+        </article>)}
+      </section>
 
       <section className="verification-queues" aria-label="Verification queues">
         <button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>

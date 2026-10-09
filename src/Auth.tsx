@@ -3,9 +3,12 @@ import { supabase } from './supabaseClient'
 import './Auth.css'
 
 const go = (path: string) => {
+  if(path.startsWith('/invite/'))sessionStorage.removeItem('manyfolds-auth-return')
   window.history.pushState({}, '', path)
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
+
+const signInDestination=()=>{const path=window.location.pathname;if(/^\/invite\/[a-f0-9]{64}$/.test(path))return path;const saved=sessionStorage.getItem('manyfolds-auth-return');return saved&&/^\/invite\/[a-f0-9]{64}$/.test(saved)?saved:'/dashboard'}
 
 type Mode = 'signin' | 'signup' | 'reset'
 
@@ -36,6 +39,7 @@ export function SignIn() {
       return
     }
 
+    sessionStorage.setItem('manyfolds-auth-return',signInDestination())
     setBusy(true)
     reset()
     const { error: authError } = await supabase.auth.signInWithOAuth({
@@ -59,6 +63,7 @@ export function SignIn() {
       return
     }
 
+    sessionStorage.setItem('manyfolds-auth-return',signInDestination())
     setBusy(true)
     reset()
     try {
@@ -84,7 +89,7 @@ export function SignIn() {
 
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
       if (authError) throw authError
-      go('/dashboard')
+      go(signInDestination())
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to continue.')
     } finally {
@@ -216,7 +221,7 @@ export function AuthCallback() {
 
       const { data: sessionData } = await supabase.auth.getSession()
       if (sessionData.session) {
-        go('/dashboard')
+        go(signInDestination())
         return
       }
 
@@ -239,7 +244,7 @@ export function AuthCallback() {
       }
 
       window.history.replaceState({}, '', '/auth/callback')
-      go('/dashboard')
+      go(signInDestination())
     }
 
     void complete()

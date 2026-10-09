@@ -106,7 +106,9 @@ export function parseAndValidateRoadmap(
     const source_record_ids = filterSourceIds(stage.source_record_ids, `Stage "${stage.title}"`)
     const hasVerifiedCycle = source_record_ids.some((id) =>
       evidence.verified_admission_cycles.some((cycle) =>
-        cycle.source_record_ids.includes(id) && cycle.cycle === stage.verified_deadline,
+        stage.date_type === 'verified_application_deadline'
+          && cycle.source_record_ids.includes(id)
+          && cycle.application_deadline === stage.verified_deadline,
       ),
     )
     const factualDate = stage.date_type.startsWith('verified_')
@@ -257,6 +259,15 @@ export function parseAndValidateRoadmap(
   }
 
   const classificationText = JSON.stringify(roadmap)
+  if (!evidence.verified_relationships.length) {
+    const statements = [roadmap.summary, ...roadmap.important_tradeoffs, ...roadmap.stages.map((stage) => `${stage.title} ${stage.description}`), ...roadmap.next_actions.map((action) => `${action.action} ${action.reason}`)]
+    if (statements.some((statement) => /\b(?:need|must|have to|require(?:s|d)?|necessary|essential)\b[^.!?]{0,70}\b(?:degree|course|programme|exam)\b/i.test(statement))) {
+      errors.push('Roadmap asserted an unsupported education or examination requirement')
+    }
+    if (statements.some((statement) => /\b(?:institutions?|colleges?|universities?)\s+(?:in\s+[^.!?]{1,45}\s+)?(?:offering|that offer)\b|\bapply\s+to\s+(?:institutions?|colleges?|universities?|degree|programmes?)\b/i.test(statement))) {
+      errors.push('Roadmap asserted an unsupported institution or application route')
+    }
+  }
   if (/\b(aspirational|safer|realistic|reach option|match (?:school|college|university)|attainable programme|competitive applicant|highly competitive|selective programme|strong (?:admission )?chance|good chance of admission|likely admission|unlikely admission|admission probability)\b/i.test(classificationText)) {
     errors.push('Roadmap added an unsupported competitiveness classification')
   }

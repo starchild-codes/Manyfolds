@@ -5,13 +5,17 @@ import { assessSourceFreshness } from '../server/ai/currentData.ts'
 import { summariseStudent } from '../server/ai/evidence.ts'
 import { compactEvidence, remainingOutputBudget, TokenBudgetError } from '../server/ai/tokens.ts'
 import { parseAndValidateRoadmap, safelyParseRoadmapContent } from '../server/ai/validation.ts'
+import { callOpenRouter, OpenRouterError } from '../server/ai/openrouter.ts'
 
 const config = createAiConfig({
   OPENROUTER_MAX_INPUT_TOKENS: '2800',
   OPENROUTER_MAX_OUTPUT_TOKENS: '1700',
-  OPENROUTER_MAX_TOTAL_TOKENS: '5000',
+  OPENROUTER_MAX_TOTAL_TOKENS: '9000',
   MANYFOLDS_LIVE_DATA_ENABLED: 'false',
 })
+assert.equal(config.primaryModel, 'mistralai/mistral-small-3.2-24b-instruct')
+assert.deepEqual(config.fallbackModels, ['openai/gpt-4.1-mini'])
+assert.equal(config.apiKey, '')
 
 const source = {
   record_id: 'career:c1',
@@ -111,11 +115,27 @@ const valid = {
 }
 
 const compacted = compactEvidence(evidence, config)
+await assert.rejects(
+  () => callOpenRouter(config, config.primaryModel, evidence, 1700),
+  /not configured/,
+  'missing server API key must fail before any network request',
+)
+const originalFetch = globalThis.fetch
+try {
+  globalThis.fetch = async () => new Response('not-json', { status: 200 })
+  await assert.rejects(
+    () => callOpenRouter({ ...config, apiKey: 'test-key' }, config.primaryModel, evidence, 1700),
+    (error) => error instanceof OpenRouterError && error.retryable,
+    'malformed provider JSON must be retryable',
+  )
+} finally {
+  globalThis.fetch = originalFetch
+}
 assert.ok(compacted.estimatedInputTokens <= 2800, 'evidence must fit the input ceiling')
 assert.equal(config.maxOutputTokens, 1700, 'OpenRouter output ceiling must be 1,700')
-assert.equal(config.maxTotalTokens, 5000, 'session ceiling must be 5,000')
+assert.equal(config.maxTotalTokens, 9000, 'session ceiling must cover typical bounded attempts')
 assert.equal(remainingOutputBudget(config, 0, 2800), 1700)
-assert.equal(remainingOutputBudget(config, 3000, 1800), 200, 'retry must share session budget')
+assert.equal(remainingOutputBudget(config, 7500, 1300), 200, 'retry must share session budget')
 
 const oversized = structuredClone(evidence)
 oversized.student.current_subjects = Array.from({ length: 16 }, () => 'x'.repeat(2000))
@@ -127,6 +147,16 @@ assert.equal(accepted.factualValid, true)
 
 const invalidSchema = parseAndValidateRoadmap({ summary: 'not a roadmap' }, evidence)
 assert.equal(invalidSchema.schemaValid, false)
+
+const unsupportedRequirement = structuredClone(valid)
+unsupportedRequirement.summary = 'You need to complete a degree to enter this career.'
+assert.equal(parseAndValidateRoadmap(unsupportedRequirement, evidence).factualValid, false, 'unsourced education requirements must fail')
+const unsupportedShortRequirement = structuredClone(valid)
+unsupportedShortRequirement.summary = 'To enter this career, you need a degree in Commerce.'
+assert.equal(parseAndValidateRoadmap(unsupportedShortRequirement, evidence).factualValid, false, 'short unsourced degree requirements must fail')
+const unsupportedApplication = structuredClone(valid)
+unsupportedApplication.next_actions[0].action = 'Apply to institutions offering Commerce degrees.'
+assert.equal(parseAndValidateRoadmap(unsupportedApplication, evidence).factualValid, false, 'unverified institution routes must fail')
 
 const targetPlanning = structuredClone(valid)
 targetPlanning.stages[0].description = 'Research target programmes, target courses, and the target application cycle.'
@@ -153,8 +183,8 @@ assert.equal(unsourcedDeadlineResult.roadmap?.stages[0].verified_deadline, null)
 assert.equal(unsourcedDeadlineResult.events[0]?.originalValue, '2026-09-01')
 
 const deadlineEvidence = structuredClone(evidence)
-deadlineEvidence.source_records.push({ ...source, record_id: 'cycle:p1', entity_type: 'admission_cycle', entity_id: 'p1', admission_cycle: '2026-09-01' })
-deadlineEvidence.verified_admission_cycles.push({ cycle_id: 'cycle-1', programme_id: 'p1', cycle: '2026-09-01', source_record_ids: ['cycle:p1'] })
+deadlineEvidence.source_records.push({ ...source, record_id: 'cycle:p1', entity_type: 'admission_cycle', entity_id: 'p1', admission_cycle: '2026' })
+deadlineEvidence.verified_admission_cycles.push({ cycle_id: 'cycle-1', programme_id: 'p1', cycle: '2026', application_deadline: '2026-09-01', source_record_ids: ['cycle:p1'] })
 const sourcedDeadline = structuredClone(valid)
 sourcedDeadline.stages[0].verified_deadline = '2026-09-01'
 sourcedDeadline.stages[0].date_type = 'verified_application_deadline'
@@ -165,7 +195,7 @@ assert.equal(sourcedDeadlineResult.factualValid, true, 'sourced application dead
 const sourcedExamDate = structuredClone(sourcedDeadline)
 sourcedExamDate.stages[0].date_type = 'verified_exam_date'
 const sourcedExamDateResult = parseAndValidateRoadmap(sourcedExamDate, deadlineEvidence)
-assert.equal(sourcedExamDateResult.factualValid, true, 'sourced exam date must pass')
+assert.equal(sourcedExamDateResult.factualValid, false, 'an application deadline must not support an exam date')
 
 const misplacedDeadline = structuredClone(valid)
 misplacedDeadline.stages[0].suggested_target_date = 'Application deadline 2026-09-01'
@@ -255,7 +285,8 @@ assert.ok(authSource.includes("header.startsWith('Bearer ')"), 'generation must 
 assert.ok(authSource.includes('organisation_memberships'), 'organisation access must be checked server-side')
 assert.ok(serviceSource.includes('organisation_id=$1'), 'queries must filter by server-derived organisation')
 assert.ok(serviceSource.includes('generationHash'), 'unchanged roadmap requests must use a cache hash')
-assert.ok(serviceSource.includes('models.slice(0, 2)'), 'fallback attempts must be capped at one retry')
+assert.ok(serviceSource.includes('[models[0], models[0], models[1]]'), 'attempts must be bounded to a primary correction and one fallback')
+assert.ok(serviceSource.includes('!validation.factualValid'), 'unsupported factual claims must not be persisted')
 assert.ok(serviceSource.includes('remainingOutputBudget'), 'fallback must share the total session budget')
 assert.ok(providerSource.includes('max_tokens: maxOutputTokens'), 'provider must receive the output ceiling')
 assert.ok(providerSource.includes("type: 'json_schema'"), 'provider must receive the strict schema format')
@@ -265,5 +296,9 @@ assert.ok(modelSource.includes('config.allowedModels'), 'catalogue changes must 
 assert.ok(migration.includes('enable row level security'), 'new tables must enable RLS')
 assert.ok(migration.includes('organisation generation isolation'), 'generation RLS policy must exist')
 assert.ok(migration.includes('total_tokens <= 5000'), 'database must enforce the token ceiling')
+const releaseMigration = await readFile('supabase/migrations/20261001_openrouter_roadmap_models.sql', 'utf8')
+assert.ok(releaseMigration.includes('total_tokens <= 9000'), 'database ceiling must be migrated')
+assert.ok(releaseMigration.includes('retry_count between 0 and 2'), 'session constraint must allow primary correction and fallback')
+assert.ok(releaseMigration.includes('attempt between 1 and 3'), 'usage constraint must allow bounded third attempt')
 
 console.log('AI roadmap architecture checks passed')

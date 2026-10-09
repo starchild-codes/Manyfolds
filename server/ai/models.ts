@@ -119,7 +119,7 @@ export async function rankAllowedModels(pool: Pool, config: AiConfig): Promise<R
      left join ai_model_health h on h.model_id=c.model_id
      where c.model_id=any($1::text[]) and c.available
        and a.enabled and a.review_status='approved'
-     order by c.estimated_roadmap_cost asc nulls last`,
+     order by array_position($1::text[], c.model_id)`,
     [config.allowedModels],
   )
   const ranked = rows.rows

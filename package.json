@@ -8,19 +8,36 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types scripts/recommendation-quality-test.mjs && node scripts/dashboard-interaction-check.mjs && node scripts/auth-flow-check.mjs && node --experimental-strip-types scripts/ai-roadmap-architecture-test.mjs && node --experimental-strip-types scripts/programme-pilot-validation-test.mjs",
+    "test": "node --experimental-strip-types scripts/recommendation-quality-test.mjs && node --experimental-strip-types scripts/workspace-storage-test.mjs && node scripts/dashboard-interaction-check.mjs && node scripts/auth-flow-check.mjs && node --experimental-strip-types scripts/ai-roadmap-architecture-test.mjs && node --experimental-strip-types scripts/programme-pilot-validation-test.mjs",
     "ai:evaluate": "node --experimental-strip-types scripts/evaluate-roadmap-models.mjs",
     "ai:evaluate:run": "node --experimental-strip-types scripts/evaluate-roadmap-models.mjs --run",
     "ai:evaluate:aggregate": "node scripts/aggregate-roadmap-evaluation.mjs",
     "ai:evaluate:persist": "node scripts/persist-roadmap-evaluation.mjs",
     "test:rls": "node scripts/rls-isolation-test.mjs",
+    "test:students": "node scripts/shared-student-registry-test.mjs",
+    "test:guidance": "node --experimental-strip-types scripts/guidance-workflow-test.mjs",
+    "test:roadmap-evidence": "node --experimental-strip-types scripts/official-roadmap-evidence-test.mjs",
+    "data:roadmap:audit": "node scripts/roadmap-data-audit.mjs",
+    "data:scholarships:stage": "node scripts/stage-nsp-scholarships.mjs",
+    "data:scholarships:stage:apply": "node scripts/stage-nsp-scholarships.mjs --apply",
+    "data:sources:check": "node scripts/check-catalogue-sources.mjs",
+    "data:sources:check:apply": "node scripts/check-catalogue-sources.mjs --apply",
+    "data:verified:coverage": "node scripts/verified-data-coverage.mjs",
+    "test:scholarship-parser": "node scripts/nsp-listing-parser-test.mjs",
+    "test:verification-workspace": "node --experimental-strip-types scripts/verification-workspace-test.mjs",
     "test:evaluation-persistence": "node scripts/evaluation-persistence-test.mjs",
     "data:audit": "node scripts/data-audit.mjs",
-    "data:import-pack": "node scripts/import-database-pack.mjs"
+    "data:import-pack": "node scripts/import-database-pack.mjs",
+    "start": "node server/index.ts",
+    "test:school": "node --experimental-strip-types scripts/school-workflow-test.mjs",
+    "test:production": "node --experimental-strip-types scripts/production-server-test.mjs",
+    "test:production-package": "node scripts/production-package-test.mjs",
+    "test:operations": "node --experimental-strip-types scripts/school-operations-test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0",
     "ajv": "^8.20.0",
+    "connect": "^3.7.0",
     "csv-parse": "^7.0.1",
     "lucide-react": "^1.25.0",
     "pg": "^8.22.0",
@@ -30,6 +47,7 @@
     "recharts": "^3.10.0"
   },
   "devDependencies": {
+    "@types/connect": "^3.4.38",
     "@types/node": "^24.13.2",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.2.17",
@@ -38,5 +56,8 @@
     "oxlint": "^1.71.0",
     "typescript": "~6.0.2",
     "vite": "^8.1.1"
+  },
+  "engines": {
+    "node": ">=24.12.0"
   }
 }
