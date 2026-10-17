@@ -1,6 +1,6 @@
 # Manyfolds launch checklist
 
-Source of truth: Product_info.md. Updated 9 October 2026.
+Source of truth: Product_info.md. Updated 17 October 2026.
 
 ## Implemented and checked locally
 
@@ -20,7 +20,7 @@ Source of truth: Product_info.md. Updated 9 October 2026.
 - [x] Replace generic local-note Workspace pages and remove unreachable legacy catalogue UI.
 - [x] Production Node server serves all APIs and SPA routes without Vite.
 - [x] Production package runs with runtime dependencies only.
-- [x] All 100 public database tables have RLS enabled.
+- [x] All 104 public database tables have RLS enabled.
 - [x] Official-source claim gates, expiry, review queue and scheduled freshness checks.
 - [x] Recheck changed NLSIU, NID and NSP pilot facts against current official sources on 9 October.
 
@@ -48,9 +48,11 @@ Manyfolds is not 100% commercially ready while these requirements remain open.
 - [ ] Restore production host access and confirm target: saved Vercel credentials are invalid; local link names motive.
 - [ ] Deploy; verify real sign-in, callback, fresh-school onboarding, invitation acceptance and persistence on the deployed origin.
 - [ ] Full browser QA of critical journeys, mobile layouts, accessibility, loading/error states and concurrent edits.
-- [ ] Complete structured academic history, family conversations, skills evidence and supporting documents.
-- [ ] Document storage with signed access, retention rules and tested permissions.
-- [ ] Full pathway/action-plan workflow: server-persisted checklist progress, approval/publish lifecycle, alternatives and final shareable outputs.
+- [x] Structured student academics (manual/CSV/history), interests, skills evidence, restricted practical constraints, family conversations and career exploration. Approved guardian summaries export separately.
+- [x] Shared checklist progress per student and direction, conflict checks and teacher read access.
+- [x] Private student document upload, role-restricted metadata, signed expiring downloads and archive/restore.
+- [ ] Configure contractual document retention/purge rules and verify backup restoration. Archived files currently remain stored and count toward quotas.
+- [ ] Full pathway/action-plan workflow: approval/publish lifecycle, alternatives, richer task dependencies and final shareable outputs. Checklist progress now persists to the server.
 - [ ] Verify authenticated live AI generation and approval/evaluation gates in production. Model choices were preserved in this work.
 - [ ] Expanded session fields, pre-session briefing, private session notes and required document variants.
 - [ ] Task recurrence, assignment controls, follow-up automation and notifications.
@@ -62,3 +64,7 @@ Manyfolds is not 100% commercially ready while these requirements remain open.
 
 Do not promote stale facts, invent statistics, enable unapproved models or describe
 unchecked production journeys as passed to make this checklist appear complete.
+
+## Verification on 17 October
+
+Profile and document migrations are applied in the configured project. The operations HTTP suite checks profile revisions, invalid dates, teacher restrictions, approved-summary isolation, academic CSV duplicates, shared planning conflicts, private/shared documents, file signature rejection, idempotent uploads, tampered download links, archive/restore and revoked membership. Only temporary schools were modified. The RLS audit reports 104/104 public tables enabled. New profile/document screens build and lint; browser verification of these screens is incomplete because Computer Use stopped when it could not reliably identify the Windows browser URL.

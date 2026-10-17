@@ -1,3 +1,4 @@
+import { studentDocumentsApi } from './school/documents.ts'
 import connect from 'connect'
 import { createServer } from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
@@ -20,7 +21,7 @@ export function createProductionServer(env:Record<string,string|undefined>,root=
  app.use('/api/health',async(req,res)=>{res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');if(req.url!=='/'||req.method!=='GET'){res.statusCode=404;res.end(JSON.stringify({error:'Endpoint not found.'}));return}try{await getDatabasePool(env.DATABASE_URL!).query('select 1');res.end(JSON.stringify({status:'ready'}))}catch{res.statusCode=503;res.end(JSON.stringify({status:'unavailable'}))}})
  // Reuse the API middleware mounted by development and preview. No Vite runtime is loaded.
  const surface={middlewares:app,httpServer} as unknown as PreviewServer
- for(const plugin of [workspaceApi(env),studentsApi(env),guidanceApi(env),schoolApi(env),schoolOperationsApi(env),aiRoadmapApi(env),knowledgeApi(env),counsellorApi(env)]){
+ for(const plugin of [workspaceApi(env),studentsApi(env),guidanceApi(env),schoolApi(env),schoolOperationsApi(env),studentDocumentsApi(env),aiRoadmapApi(env),knowledgeApi(env),counsellorApi(env)]){
   const hook=plugin.configurePreviewServer
   if(typeof hook==='function')void hook.call({} as never,surface)
  }

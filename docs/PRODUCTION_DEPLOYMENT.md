@@ -60,3 +60,9 @@ Create requests for diagnostics, interventions, guidance activities, and invitat
 use stable IDs so an ambiguous response can be retried without duplicating the record.
 Version conflicts require reloading before another edit. Monitor database availability
 on the chosen host before commercial launch.
+
+## Student profiles and private documents (17 October)
+
+Apply `20261016_student_profiles.sql`, `20261017_shared_planning.sql` and `20261017_student_documents.sql`. Configure `DOCUMENT_SIGNING_SECRET` as a server-only random secret of at least 32 characters, identical across instances. A local secret was generated in the ignored environment file; it is not included in Git or the browser bundle. Rotating it invalidates outstanding document links.
+
+Document binaries are held in the private database table; direct authenticated clients can read permitted metadata only. A signed two-minute download grant rechecks the issuing staff member's active school membership, current role and document archive state. Uploads validate file signatures/types and allow up to 5 MB each, 100 files per student and 1 GB per school, including archived files. Allowed formats are PDF, PNG, JPEG and UTF-8 text. Archives preserve contents; permanent purge and contractual retention policies require school-specific configuration and remain a launch requirement. Include these tables in backup/restore verification.

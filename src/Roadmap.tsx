@@ -8,7 +8,7 @@ import {
 } from './aiRoadmapApi'
 import { buildMatches, type Profile } from './recommendationEngine'
 import { EmptyState, LoadingSkeleton, StatusBadge } from './UiPrimitives'
-import { scopedStorageKey } from './workspaceStorage'
+import { operationsRequest } from './operationsApi'
 
 type Step = {
   id: string
@@ -19,7 +19,6 @@ type Step = {
   done: boolean
 }
 
-const roadmapKey = 'cc-student-roadmap-v1'
 const phaseLabels: Record<AiRoadmap['stages'][number]['stage'], string> = {
   now: 'Now',
   next_6_months: 'Next 6 months',
@@ -94,22 +93,17 @@ function defaultSteps(profile: Profile, career: string): Step[] {
 }
 
 export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify: (message: string) => void;profile:Profile|null;studentKey:string;canEdit:boolean }) {
-  const studentRoadmapKey=roadmapKey+':'+studentKey
   const matches = useMemo(() => (profile ? buildMatches(profile) : []), [profile])
   const [selected, setSelected] = useState(0)
   const career = matches[selected]
-  const [steps, setSteps] = useState<Step[]>(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(scopedStorageKey(studentRoadmapKey)) || '[]')
-      return saved.length
-        ? saved
-        : profile
-          ? defaultSteps(profile, matches[0]?.name || 'your selected pathway')
-          : []
-    } catch {
-      return profile ? defaultSteps(profile, matches[0]?.name || 'your selected pathway') : []
-    }
-  })
+  const [steps,setSteps]=useState<Step[]>([])
+  const [checklist,setChecklist]=useState<{version:number;updated_at?:string}>({version:0})
+  const [checklistLoading,setChecklistLoading]=useState(true),[checklistSaving,setChecklistSaving]=useState(false),[checklistError,setChecklistError]=useState(''),[checklistAttempt,setChecklistAttempt]=useState(0)
+  const direction=career?.name||''
+  useEffect(()=>{let active=true;setChecklistLoading(true);setChecklistError('');setSteps([]);setChecklist({version:0});if(!profile||!direction){setChecklistLoading(false);return()=>{active=false}}
+   void operationsRequest<{record:{steps:Step[];version:number;updated_at?:string}}>(`/roadmap-checklist?student=${encodeURIComponent(studentKey)}&direction=${encodeURIComponent(direction)}`).then(({record})=>{if(active){setChecklist(record);setSteps(record.version?record.steps:defaultSteps(profile,direction))}}).catch(error=>{if(active)setChecklistError(error instanceof Error?error.message:'The shared checklist is unavailable.')}).finally(()=>{if(active)setChecklistLoading(false)});return()=>{active=false}
+  },[studentKey,direction,profile,checklistAttempt])
+  const saveChecklist=async(next:Step[])=>{if(!canEdit||checklistLoading||checklistSaving||checklistError)return;setChecklistSaving(true);try{const {record}=await operationsRequest<{record:{steps:Step[];version:number;updated_at:string}}>('/roadmap-checklist',{method:'PUT',body:JSON.stringify({studentKey,direction,version:checklist.version,steps:next})});setSteps(record.steps);setChecklist(record);notify('Checklist saved to the school workspace')}catch(error){setChecklistError(error instanceof Error?error.message:'The checklist could not be saved. Reload before retrying.')}finally{setChecklistSaving(false)}}
   const [generation, setGeneration] = useState<AiRoadmapGeneration | null>(null)
   const [loadingSaved, setLoadingSaved] = useState(true)
   const [generationState, setGenerationState] = useState<'idle' | 'loading' | 'error'>('idle')
@@ -118,7 +112,6 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [notes, setNotes] = useState('')
 
-  useEffect(() => localStorage.setItem(scopedStorageKey(studentRoadmapKey), JSON.stringify(steps)), [steps,studentRoadmapKey])
   useEffect(() => {
     setLoadingSaved(true)
     void getLatestAiRoadmap(studentKey)
@@ -258,22 +251,12 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
   const add = () => {
     const title = window.prompt('Custom roadmap step')
     if (!title) return
-    setSteps((current) => [
-      ...current,
-      {
-        id: String(Date.now()),
-        phase: 'Now',
-        title,
-        detail: 'Counsellor-added step. Add a source and deadline before relying on it.',
-        mandatory: false,
-        done: false,
-      },
-    ])
-    notify('Custom roadmap step saved locally')
+    void saveChecklist([...steps,{id:crypto.randomUUID(),phase:'Now',title:title.trim(),detail:'Counsellor-added step. Confirm sources and deadlines before acting.',mandatory:false,done:false}])
   }
 
-  const exportPlan = () => {
-    const content = `Manyfolds roadmap\nTarget: ${career?.name}\n\n${steps
+  const exportPlan = async () => {
+    try{await operationsRequest('/export-log',{method:'POST',body:JSON.stringify({kind:'roadmap_checklist',studentKey})})}catch(error){notify(error instanceof Error?error.message:'Export could not be recorded.');return}
+    const content = `Manyfolds planning checklist\nStudent record: ${studentKey}\nGenerated: ${new Date().toLocaleString()}\nTarget: ${career?.name}\n\n${steps
       .map((stepItem) => `[${stepItem.done ? 'x' : ' '}] ${stepItem.phase}: ${stepItem.title}\n${stepItem.detail}`)
       .join('\n\n')}\n\nCollege admissions: programme-level verification may be incomplete.`
     const anchor = document.createElement('a')
@@ -475,7 +458,8 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
       <details className="roadmap-secondary" open={!generation && !loadingSaved && generationState !== 'loading' && !savedStatusUnavailable}>
         <summary>Explore other directions and the planning checklist <span>Rule-based guidance · separate from the saved AI roadmap</span></summary>
         <div className="roadmap-secondary-body">
-          <div className="roadmap-checklist-actions"><button className="secondary" onClick={add}>Add counsellor step</button><button className="secondary" onClick={exportPlan}>Export roadmap checklist</button></div>
+          <div className="roadmap-checklist-actions"><button className="secondary" disabled={!canEdit||checklistLoading||checklistSaving||Boolean(checklistError)} onClick={add}>Add counsellor step</button><button className="secondary" disabled={!canEdit||!checklist.version||checklistSaving||Boolean(checklistError)} onClick={()=>void exportPlan()}>Export roadmap checklist</button>{!checklist.version&&<button className="new" disabled={!canEdit||checklistLoading||checklistSaving||Boolean(checklistError)} onClick={()=>void saveChecklist(steps)}>Save suggested checklist to school</button>}</div>
+      <p role="status">{checklistLoading?'Loading the school checklist...':checklistSaving?'Saving to the school...':checklist.updated_at?`Saved to the school workspace ${new Date(checklist.updated_at).toLocaleString()}`:'Suggested checklist. Save it to keep progress in the school workspace.'}</p>{checklistError&&<p className="guidance-error" role="alert">{checklistError}<button onClick={()=>setChecklistAttempt(value=>value+1)}>Reload checklist</button></p>}
       <section className="roadmap-capability" aria-label="Roadmap data capability">
         <article>
           <p className="eyebrow">Available now</p>
@@ -500,7 +484,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
         {matches.slice(0, 5).map((match, index) => (
           <button
             className={selected === index ? 'active' : ''}
-            onClick={() => setSelected(index)}
+            disabled={checklistSaving} onClick={() => setSelected(index)}
             key={match.name}
           >
             {match.name}<small>{match.band}</small>
@@ -531,13 +515,8 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
                 <input
                   type="checkbox"
                   checked={stepItem.done}
-                  onChange={() =>
-                    setSteps((current) =>
-                      current.map((item) =>
-                        item.id === stepItem.id ? { ...item, done: !item.done } : item,
-                      ),
-                    )
-                  }
+                  disabled={!canEdit||checklistLoading||checklistSaving||Boolean(checklistError)}
+                  onChange={()=>void saveChecklist(steps.map(item=>item.id===stepItem.id?{...item,done:!item.done}:item))}
                 />
                 <span>
                   <b>{stepItem.title}{stepItem.mandatory && ' · Verify before acting'}</b>
