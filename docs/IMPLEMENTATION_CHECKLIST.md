@@ -45,13 +45,16 @@ not comprehensive national coverage. Changed sources can reduce coverage pending
 
 Manyfolds is not 100% commercially ready while these requirements remain open.
 
-- [ ] Restore production host access and confirm target: saved Vercel credentials are invalid; local link names motive.
-- [ ] Deploy; verify real sign-in, callback, fresh-school onboarding, invitation acceptance and persistence on the deployed origin.
+- [x] Select Manyfolds as the sole deployment target and remove the local Motive association.
+- [x] Restore Vercel authentication, link manyfolds, configure environment settings and deploy https://manyfolds.vercel.app. Hosted HTTP and database readiness checks pass.
+- [ ] Upgrade the current Vercel Hobby team before commercial use.
+- [ ] Verify real sign-in, callback, fresh-school onboarding, invitation acceptance and persistence on the deployed origin.
 - [ ] Full browser QA of critical journeys, mobile layouts, accessibility, loading/error states and concurrent edits.
 - [x] Structured student academics (manual/CSV/history), interests, skills evidence, restricted practical constraints, family conversations and career exploration. Approved guardian summaries export separately.
 - [x] Shared checklist progress per student and direction, conflict checks and teacher read access.
 - [x] Private student document upload, role-restricted metadata, signed expiring downloads and archive/restore.
 - [ ] Configure contractual document retention/purge rules and verify backup restoration. Archived files currently remain stored and count toward quotas.
+- [x] Roadmap review, approval and publication gates; atomic version conflicts; edits reset approval; private saved review notes.
 - [ ] Full pathway/action-plan workflow: approval/publish lifecycle, alternatives, richer task dependencies and final shareable outputs. Checklist progress now persists to the server.
 - [ ] Verify authenticated live AI generation and approval/evaluation gates in production. Model choices were preserved in this work.
 - [ ] Expanded session fields, pre-session briefing, private session notes and required document variants.
@@ -68,3 +71,5 @@ unchecked production journeys as passed to make this checklist appear complete.
 ## Verification on 17 October
 
 Profile and document migrations are applied in the configured project. The operations HTTP suite checks profile revisions, invalid dates, teacher restrictions, approved-summary isolation, academic CSV duplicates, shared planning conflicts, private/shared documents, file signature rejection, idempotent uploads, tampered download links, archive/restore and revoked membership. Only temporary schools were modified. The RLS audit reports 104/104 public tables enabled. New profile/document screens build and lint; browser verification of these screens is incomplete because Computer Use stopped when it could not reliably identify the Windows browser URL.
+
+The Manyfolds Vercel adapter and deployment guard are implemented. Local rewritten-API and roadmap lifecycle integration tests pass. Vercel authentication succeeded and production is deployed. Hosted SPA routes, database health, anonymous API rejection, unknown routes and cross-origin mutation rejection pass. Supabase production callback configuration is applied. Authenticated browser journeys remain unverified; the hosting team is still on Hobby.

@@ -73,6 +73,8 @@ export class RoadmapService {
   private async safeGenerationResponse(
     row: {
       id: string
+      version: number
+      counsellor_notes?: string
       roadmap: RoadmapOutput
       status: string
       generated_at: string
@@ -82,6 +84,7 @@ export class RoadmapService {
       evidence_snapshot_id: string
     },
     cached: boolean,
+    auth: AuthContext,
   ) {
     const evidenceResult = await this.pool.query(
       `select evidence from roadmap_evidence_snapshots where id=$1`,
@@ -94,6 +97,8 @@ export class RoadmapService {
     }
     return {
       id: row.id,
+      version: row.version,
+      counsellorNotes: ['owner','admin','counsellor'].includes(auth.role)?row.counsellor_notes:undefined,
       roadmap: row.roadmap,
       status: row.status,
       generatedAt: row.generated_at,
@@ -118,7 +123,7 @@ export class RoadmapService {
 
   async latest(auth: AuthContext, studentExternalId = `diagnostic-${auth.userId}`) {
     const result = await this.pool.query(
-      `select id,roadmap,status,generated_at,updated_at,model_generated_notice,
+      `select id,version,counsellor_notes,roadmap,status,generated_at,updated_at,model_generated_notice,
               validation_errors,evidence_snapshot_id
        from roadmap_generations
        where organisation_id=$1 and student_external_id=$2
@@ -126,7 +131,7 @@ export class RoadmapService {
       [auth.organisationId, studentExternalId],
     )
     if (!result.rowCount) return null
-    return this.safeGenerationResponse(result.rows[0], true)
+    return this.safeGenerationResponse(result.rows[0], true,auth)
   }
 
   async generate(auth: AuthContext, request: GenerationRequest) {
@@ -155,7 +160,7 @@ export class RoadmapService {
 
       if (!request.force) {
         const cached = await this.pool.query(
-          `select id,roadmap,status,generated_at,updated_at,model_generated_notice,
+          `select id,version,counsellor_notes,roadmap,status,generated_at,updated_at,model_generated_notice,
                   validation_errors,evidence_snapshot_id
            from roadmap_generations
            where organisation_id=$1 and student_external_id=$2 and generation_hash=$3
@@ -164,7 +169,7 @@ export class RoadmapService {
           [auth.organisationId, studentExternalId, generationHash],
         )
         if (cached.rowCount) {
-          const cachedGeneration = await this.safeGenerationResponse(cached.rows[0], true)
+          const cachedGeneration = await this.safeGenerationResponse(cached.rows[0], true,auth)
           if (cachedGeneration) return cachedGeneration
         }
       }
@@ -350,7 +355,7 @@ export class RoadmapService {
              on conflict(organisation_id,student_external_id,generation_hash)
              do update set roadmap=excluded.roadmap,validation_errors=excluded.validation_errors,
                updated_at=now()
-             returning id,roadmap,status,generated_at,updated_at,model_generated_notice,
+             returning id,version,counsellor_notes,roadmap,status,generated_at,updated_at,model_generated_notice,
                validation_errors,evidence_snapshot_id`,
             [
               auth.organisationId,
@@ -399,7 +404,7 @@ export class RoadmapService {
               sessionLatencyMs,
             ],
           )
-          return this.safeGenerationResponse(generation.rows[0], false)
+          return this.safeGenerationResponse(generation.rows[0], false,auth)
         } catch (error) {
           lastError = error instanceof Error ? error : new Error('Provider failure')
           console.error('AI roadmap model attempt failed', {
@@ -491,8 +496,10 @@ export class RoadmapService {
   async update(
     auth: AuthContext,
     generationId: string,
-    payload: { status?: string; counsellorNotes?: string; roadmap?: unknown },
+    payload: { status?: string; counsellorNotes?: string; roadmap?: unknown; expectedVersion?:number },
   ) {
+    if(!['owner','admin','counsellor'].includes(auth.role))throw new RoadmapServiceError('Your role cannot review roadmaps.',403)
+    if(!Number.isSafeInteger(payload.expectedVersion)||Number(payload.expectedVersion)<1)throw new RoadmapServiceError('Reload the roadmap to obtain its current version.',409)
     const existing = await this.pool.query(
       `select g.*,e.evidence
        from roadmap_generations g join roadmap_evidence_snapshots e on e.id=g.evidence_snapshot_id
@@ -501,6 +508,7 @@ export class RoadmapService {
     )
     if (!existing.rowCount) throw new RoadmapServiceError('Roadmap not found.', 404)
     const row = existing.rows[0]
+    if(row.version!==payload.expectedVersion)throw new RoadmapServiceError('This roadmap changed elsewhere. Reload before saving again.',409)
     let roadmap = row.roadmap as RoadmapOutput
     let validationErrors = Array.isArray(row.validation_errors)
       ? row.validation_errors.filter((item: unknown): item is string => typeof item === 'string')
@@ -516,16 +524,21 @@ export class RoadmapService {
       roadmap = validation.roadmap
       validationErrors = validation.errors
     }
-    const allowedStatus = ['draft', 'reviewed', 'approved', 'published', 'rejected']
-    const nextStatus =
-      payload.status && allowedStatus.includes(payload.status) ? payload.status : row.status
+    const transitions:Record<string,string[]>={draft:['draft','reviewed','rejected'],reviewed:['draft','reviewed','approved','rejected'],approved:['draft','approved','published','rejected'],published:['draft','published'],rejected:['draft','rejected']}
+    const nextStatus=payload.status||(payload.roadmap?'draft':row.status)
+    if(!transitions[row.status]?.includes(nextStatus))throw new RoadmapServiceError('Review the draft before approval, and approve it before publication.',409)
+    if(payload.roadmap&&nextStatus!=='draft')throw new RoadmapServiceError('Save content edits as a draft, then review the saved version.',409)
+    if(['reviewed','approved','published'].includes(nextStatus)){
+      const validation=parseAndValidateRoadmap(roadmap,row.evidence as RoadmapEvidencePackage)
+      if(!validation.schemaValid||!validation.factualValid||!row.schema_valid||!row.factual_validation_valid)throw new RoadmapServiceError('This roadmap must pass evidence validation before review or publication.',422)
+    }
     const updated = await this.pool.query(
       `update roadmap_generations set roadmap=$3,status=$4,counsellor_notes=$5,
-        validation_errors=$6,reviewed_at=case when $4 in ('reviewed','approved','published') then now() else reviewed_at end,
-        approved_at=case when $4 in ('approved','published') then now() else approved_at end,
-        updated_at=now()
-       where id=$1 and organisation_id=$2
-       returning id,roadmap,status,generated_at,updated_at,model_generated_notice,
+        validation_errors=$6,reviewed_at=case when $4 in ('draft','rejected') then null when $4='reviewed' and status<>'reviewed' then now() else reviewed_at end,
+        approved_at=case when $4 in ('draft','reviewed','rejected') then null when $4='approved' and status<>'approved' then now() else approved_at end,
+        updated_at=now(),version=version+1,updated_by=$8
+       where id=$1 and organisation_id=$2 and version=$7
+       returning id,version,counsellor_notes,roadmap,status,generated_at,updated_at,model_generated_notice,
          validation_errors,evidence_snapshot_id`,
       [
         generationId,
@@ -536,8 +549,10 @@ export class RoadmapService {
           ? payload.counsellorNotes.slice(0, 4000)
           : row.counsellor_notes,
         JSON.stringify(validationErrors),
+        payload.expectedVersion,auth.userId,
       ],
     )
-    return this.safeGenerationResponse(updated.rows[0], false)
+    if(!updated.rowCount)throw new RoadmapServiceError('This roadmap changed elsewhere. Reload before saving again.',409)
+    return this.safeGenerationResponse(updated.rows[0], false,auth)
   }
 }

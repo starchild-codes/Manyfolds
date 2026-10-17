@@ -13,7 +13,7 @@ const categories=['Consent','Academic record','Student work','Meeting record','S
 const writer=(role:string)=>['owner','admin','counsellor'].includes(role)
 const metadata='id,student_key,filename,media_type,category,visibility,size_bytes,created_by,created_at,archived_at'
 export function studentDocumentsApi(env:Record<string,string|undefined>,authenticate:typeof authenticateRoadmapRequest=authenticateRoadmapRequest):Plugin{
- const config=createAiConfig(env),pool=getDatabasePool(config.databaseUrl),secret=env.DOCUMENT_SIGNING_SECRET||''
+ const config=createAiConfig(env),pool=getDatabasePool(config.databaseUrl),secret=env.DOCUMENT_SIGNING_SECRET||'',maxFileBytes=env.VERCEL?3_145_728:5_242_880
  const signature=(payload:string)=>createHmac('sha256',secret).update(payload).digest('hex')
  const mount=(server:ViteDevServer|PreviewServer)=>{
   server.middlewares.use('/api/student-documents',async(req,res)=>{try{
@@ -29,7 +29,7 @@ export function studentDocumentsApi(env:Record<string,string|undefined>,authenti
    }
    const auth=await authenticate(req,pool,config)
    if(req.method==='GET'&&path==='/'){
-    const key=text(url.searchParams.get('student'),120),result=await readDatabase(pool,`select ${metadata} from school_student_documents where organisation_id=$1 and student_key=$2 and ($3 or visibility='school_staff') order by created_at desc`,[auth.organisationId,key,writer(auth.role)]);return reply(res,200,{records:result.rows,uploadEnabled:secret.length>=32})
+    const key=text(url.searchParams.get('student'),120),result=await readDatabase(pool,`select ${metadata} from school_student_documents where organisation_id=$1 and student_key=$2 and ($3 or visibility='school_staff') order by created_at desc`,[auth.organisationId,key,writer(auth.role)]);return reply(res,200,{records:result.rows,uploadEnabled:secret.length>=32,maxFileBytes})
    }
    const input=await body(req)
    if(path==='/link'&&req.method==='POST'){
@@ -44,7 +44,7 @@ export function studentDocumentsApi(env:Record<string,string|undefined>,authenti
      if(secret.length<32)throw new DocumentError('Document storage requires a configured signing secret.',503)
      const id=input.id,key=text(input.studentKey,120),filename=text(input.filename).replace(/[\r\n\\/]/g,'_'),category=text(input.category),visibility=text(input.visibility),encoded=text(input.content,7_000_000)
      if(!uuid(id)||!categories.includes(category)||!['school_staff','counselling_staff'].includes(visibility)||!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded))throw new DocumentError('Document metadata or file encoding is invalid.')
-     const content=Buffer.from(encoded,'base64');if(!content.length||content.length>5_242_880)throw new DocumentError('Use a document between 1 byte and 5 MB.',413)
+     const content=Buffer.from(encoded,'base64');if(!content.length||content.length>maxFileBytes)throw new DocumentError(`Use a document between 1 byte and ${maxFileBytes/1_048_576} MB.`,413)
      let media='';if(filename.toLowerCase().endsWith('.pdf')&&content.subarray(0,5).toString()==='%PDF-')media='application/pdf';if(filename.toLowerCase().endsWith('.png')&&content.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))media='image/png';if(/\.jpe?g$/i.test(filename)&&content[0]===255&&content[1]===216&&content[2]===255)media='image/jpeg';if(/\.txt$/i.test(filename)&&!content.includes(0)&&Buffer.from(content.toString('utf8')).equals(content))media='text/plain';if(!media)throw new DocumentError('Upload a valid PDF, PNG, JPEG or UTF-8 text file.',415)
      await db.query('select id from organisations where id=$1 for update',[auth.organisationId]);const student=await db.query('select 1 from student_registry_records where organisation_id=$1 and external_key=$2 and archived_at is null for key share',[auth.organisationId,key]);if(!student.rowCount)throw new DocumentError('Student is unavailable or archived.',404)
      const hash=createHash('sha256').update(content).digest('hex'),previous=await db.query(`select ${metadata},sha256 from school_student_documents where id=$1`,[id]);if(previous.rowCount){const row=previous.rows[0];if(row.student_key!==key||row.created_by!==auth.userId||row.sha256!==hash||row.filename!==filename||row.visibility!==visibility||row.category!==category||row.archived_at)throw new DocumentError('This upload request was already used.',409);const owned=await db.query('select 1 from school_student_documents where id=$1 and organisation_id=$2',[id,auth.organisationId]);if(!owned.rowCount)throw new DocumentError('This upload request was already used.',409);await db.query('commit');const {sha256:_hash,...record}=row;return reply(res,200,{record})}

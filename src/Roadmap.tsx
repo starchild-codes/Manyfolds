@@ -111,12 +111,14 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
   const [errorSource, setErrorSource] = useState<'load' | 'generate' | null>(null)
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [notes, setNotes] = useState('')
+  const [reviewSaving,setReviewSaving]=useState(false)
 
   useEffect(() => {
     setLoadingSaved(true)
     void getLatestAiRoadmap(studentKey)
       .then((latest) => {
         setGeneration(latest)
+        setNotes(latest?.counsellorNotes||'')
         setGenerationState('idle')
         setGenerationError('')
         setErrorSource(null)
@@ -177,6 +179,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
       })
       if (!next) throw new Error('The roadmap service did not return a draft. Please try again.')
       setGeneration(next)
+      setNotes(next.counsellorNotes||'')
       setGenerationState('idle')
       setErrorSource(null)
       notify(next?.cached ? 'Existing roadmap reused — no new AI tokens consumed' : 'AI-assisted roadmap draft created')
@@ -191,9 +194,11 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
     roadmap: AiRoadmap,
     status = generation?.status || 'draft',
   ) => {
-    if (!generation) return
+    if (!generation||reviewSaving) return
+    setReviewSaving(true)
     try {
       const updated = await updateAiRoadmap(generation.id, {
+        expectedVersion:generation.version,
         roadmap,
         status,
         counsellorNotes: notes,
@@ -202,7 +207,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
       notify('Roadmap review saved')
     } catch (error) {
       notify(error instanceof Error ? error.message : 'Could not save the roadmap review')
-    }
+    }finally{setReviewSaving(false)}
   }
 
   const editStage = async (index: number) => {
@@ -218,8 +223,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
         itemIndex === index ? { ...item, title, description } : item,
       ),
     }
-    setGeneration({ ...generation, roadmap, status: 'reviewed' })
-    await saveGeneration(roadmap, 'reviewed')
+    await saveGeneration(roadmap, 'draft')
   }
 
   const removeCourse = async (courseId: string) => {
@@ -230,14 +234,15 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
         (course) => course.course_id !== courseId,
       ),
     }
-    setGeneration({ ...generation, roadmap, status: 'reviewed' })
-    await saveGeneration(roadmap, 'reviewed')
+    await saveGeneration(roadmap, 'draft')
   }
 
   const setStatus = async (status: 'reviewed' | 'approved' | 'published') => {
-    if (!generation) return
+    if (!generation||reviewSaving) return
+    setReviewSaving(true)
     try {
       const updated = await updateAiRoadmap(generation.id, {
+        expectedVersion:generation.version,
         status,
         counsellorNotes: notes,
       })
@@ -245,9 +250,10 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
       notify(`Roadmap marked ${status}`)
     } catch (error) {
       notify(error instanceof Error ? error.message : 'Could not update roadmap status')
-    }
+    }finally{setReviewSaving(false)}
   }
 
+  const saveNotes=async()=>{if(!generation||reviewSaving)return;setReviewSaving(true);try{const updated=await updateAiRoadmap(generation.id,{expectedVersion:generation.version,counsellorNotes:notes});setGeneration(updated);notify('Review notes saved')}catch(error){notify(error instanceof Error?error.message:'Review notes could not be saved.')}finally{setReviewSaving(false)}}
   const add = () => {
     const title = window.prompt('Custom roadmap step')
     if (!title) return
@@ -303,11 +309,11 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
               <small>Review the guidance and its evidence below.</small>
             </div>
             <div className="roadmap-actions">
-              <button className="secondary" disabled={!canEdit||generationState==='loading'} onClick={() => void generate(true)}>Regenerate with current data</button>
-              {generation.status === 'draft' && <button className="secondary" disabled={!canEdit||generationState==='loading'} onClick={() => void setStatus('reviewed')}>Save review</button>}
-              {(generation.status === 'draft' || generation.status === 'reviewed') && <button className="new" disabled={!canEdit||generationState==='loading'} onClick={() => void setStatus('approved')}>Approve</button>}
+              <button className="secondary" disabled={!canEdit||reviewSaving||generationState==='loading'} onClick={() => void generate(true)}>Regenerate with current data</button>
+              {generation.status === 'draft' && <button className="secondary" disabled={!canEdit||reviewSaving||generationState==='loading'} onClick={() => void setStatus('reviewed')}>Save review</button>}
+              {generation.status === 'reviewed' && <button className="new" disabled={!canEdit||reviewSaving||generationState==='loading'} onClick={() => void setStatus('approved')}>Approve</button>}
               {generation.status === 'approved' && (
-                <button className="new" disabled={!canEdit||generationState==='loading'} onClick={() => void setStatus('published')}>Publish</button>
+                <button className="new" disabled={!canEdit||reviewSaving||generationState==='loading'} onClick={() => void setStatus('published')}>Publish</button>
               )}
             </div>
           </div>
@@ -410,11 +416,14 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
             Counsellor review notes
             <textarea
               value={notes}
+              disabled={!canEdit||reviewSaving}
+              maxLength={4000}
               onChange={(event) => setNotes(event.target.value)}
               placeholder="Add context, wording changes, or follow-up notes. These notes are not sent to the model."
             />
           </label>
 
+          {canEdit&&<button className="secondary" disabled={reviewSaving||notes===(generation.counsellorNotes||'')} onClick={()=>void saveNotes()}>{reviewSaving?'Saving review...':'Save review notes'}</button>}
           <div className="ai-sources">
             <h3>Sources and verification</h3>
             {!verifiedSources.length && (
@@ -503,7 +512,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
           This selection comes from the transparent scoring engine. AI may explain and organise
           supplied records, but it cannot change the verified eligibility result.
         </p>
-        {generation && <button className="secondary" disabled={!canEdit||generationState==='loading'} onClick={() => void generate(false)}>Generate for this direction</button>}
+        {generation && <button className="secondary" disabled={!canEdit||reviewSaving||generationState==='loading'} onClick={() => void generate(false)}>Generate for this direction</button>}
       </section>
 
       {(['Now', 'Next 6–12 months', 'After current qualification', 'Long-term'] as const).map(

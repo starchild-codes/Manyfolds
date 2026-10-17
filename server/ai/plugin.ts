@@ -117,7 +117,7 @@ export function aiRoadmapApi(env: Record<string, string | undefined>): Plugin {
             return
           }
           if (req.method === 'POST' && url.pathname === '/api/ai-roadmaps') {
-            if(auth.role==='teacher')throw new AuthenticationError('Your role can view roadmaps but cannot generate them.',403)
+            if(!['owner','admin','counsellor'].includes(auth.role))throw new AuthenticationError('Your role can view roadmaps but cannot generate them.',403)
             const body = (await readJson(req)) as GenerationRequest
             json(res, 200, { generation: await service.generate(auth, body) })
             return
@@ -128,6 +128,7 @@ export function aiRoadmapApi(env: Record<string, string | undefined>): Plugin {
             const body = await readJson(req)
             json(res, 200, {
               generation: await service.update(auth, match[1], {
+                expectedVersion:typeof body.expectedVersion==='number'?body.expectedVersion:undefined,
                 status: typeof body.status === 'string' ? body.status : undefined,
                 counsellorNotes:
                   typeof body.counsellorNotes === 'string' ? body.counsellorNotes : undefined,

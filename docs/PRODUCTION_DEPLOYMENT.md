@@ -46,13 +46,11 @@ After deploying, verify actual sign-in/callback, a new owner's onboarding, invit
 acceptance using a separate confirmed email account, and saved student workflows through
 the deployed origin. Check that a second school cannot access the first school's records.
 
-## Verification status (9 October 2026)
+## Verification status (17 October 2026)
 
-Local production HTTP smoke and school workflow integration checks passed. No remote
-release was published in this work. The existing Vercel CLI credentials were rejected
-as invalid, and the local Vercel link names the project `motive`. Its ownership/target
-must be confirmed before publishing Manyfolds. The supplied Dockerfile targets a Node
-host; the existing static Vercel configuration is not a working backend deployment.
+Manyfolds is deployed at https://manyfolds.vercel.app under the `manyfolds` project. The local Motive association was removed. Vercel authentication and production/preview environment setup succeeded. Deployment `dpl_8jU8ozYt54UscbecHu1RiS2UP3HW` passed hosted HTTP checks: SPA routes and database health return 200; protected student/profile/document/roadmap APIs return 401 without a session; unknown APIs return 404; cross-origin mutations return 403. TypeScript relative import rewriting is required for the compiled function. Health checks accept query parameters added by the host.
+
+Supabase's site URL is now https://manyfolds.vercel.app, with the exact production `/auth/callback` and local development callbacks allowed. Actual browser sign-in, onboarding, invitation acceptance and authenticated production workflows still require verification. The hosting team is currently on Hobby; [Vercel restricts Hobby to personal, non-commercial use](https://vercel.com/docs/plans/hobby). Upgrade before commercial launch. This deployment is not a commercial-readiness certification.
 
 Intermittent connection resets have been observed from the configured Supabase pooler.
 Connection checks retry before a transaction starts; writes are not blindly replayed.
@@ -66,3 +64,11 @@ on the chosen host before commercial launch.
 Apply `20261016_student_profiles.sql`, `20261017_shared_planning.sql` and `20261017_student_documents.sql`. Configure `DOCUMENT_SIGNING_SECRET` as a server-only random secret of at least 32 characters, identical across instances. A local secret was generated in the ignored environment file; it is not included in Git or the browser bundle. Rotating it invalidates outstanding document links.
 
 Document binaries are held in the private database table; direct authenticated clients can read permitted metadata only. A signed two-minute download grant rechecks the issuing staff member's active school membership, current role and document archive state. Uploads validate file signatures/types and allow up to 5 MB each, 100 files per student and 1 GB per school, including archived files. Allowed formats are PDF, PNG, JPEG and UTF-8 text. Archives preserve contents; permanent purge and contractual retention policies require school-specific configuration and remain a launch requirement. Include these tables in backup/restore verification.
+
+## Manyfolds Vercel target
+
+Run `vercel login`, then `vercel link --project manyfolds --yes`. Configure the server variables from `.env.example` in that project, including DATABASE_URL, OPENROUTER_API_KEY and DOCUMENT_SIGNING_SECRET, and the public Supabase URL/key for the build and runtime. Never upload `.env.local`; `.vercelignore` excludes private environment files. Use `npm run deploy`; this command refuses a linked project whose name is not manyfolds. The local Motive association has been removed.
+
+`api/index.ts` reuses the tested Node middleware and database pool. `vercel.json` sends API paths to that handler and preserves SPA deep links. `npm run test:vercel` tests rewritten paths and API authentication locally; it does not establish a hosted deployment. The setup follows [Vercel Node functions](https://vercel.com/docs/functions/runtimes/node-js) and [Vite SPA routing](https://vercel.com/docs/frameworks/frontend/vite). On Vercel, document uploads are capped at 3 MB before base64 encoding to stay inside the [function payload limit](https://vercel.com/docs/functions/limitations); the standalone Node host retains the 5 MB cap. The document UI reads the actual limit from the server.
+
+Apply `20261017_roadmap_review_lifecycle.sql` for atomic roadmap version checks. Content edits return a roadmap to draft; review precedes approval, and approval precedes publication. Saved review notes remain internal to counselling staff. Run `npm run test:roadmap-review` to verify these transitions and role restrictions without sending an AI request.

@@ -32,7 +32,10 @@
     "test:school": "node --experimental-strip-types scripts/school-workflow-test.mjs",
     "test:production": "node --experimental-strip-types scripts/production-server-test.mjs",
     "test:production-package": "node scripts/production-package-test.mjs",
-    "test:operations": "node --experimental-strip-types scripts/school-operations-test.mjs"
+    "test:operations": "node --experimental-strip-types scripts/school-operations-test.mjs",
+    "deploy": "node scripts/deploy-manyfolds.mjs",
+    "test:vercel": "node --experimental-strip-types scripts/vercel-adapter-test.mjs",
+    "test:roadmap-review": "node --experimental-strip-types scripts/roadmap-review-test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0",

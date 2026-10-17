@@ -1,0 +1,168 @@
+{
+  "evidence": {
+    "student": {
+      "student_id": "student-test",
+      "grade_level": "Class 12",
+      "board": "CBSE",
+      "current_subjects": [
+        "Psychology",
+        "Computer Science"
+      ],
+      "subject_affinities": [
+        "Psychology",
+        "Computer Science"
+      ],
+      "subject_avoidances": [],
+      "academic_band": "70–85%",
+      "skills": [
+        "Research",
+        "Coding"
+      ],
+      "work_preferences": [
+        "Working with people"
+      ],
+      "values": [
+        "Social impact"
+      ],
+      "budget_band": "Under ₹50,000",
+      "location_constraints": [
+        "Near home required"
+      ],
+      "relocation_preference": "No",
+      "exam_willingness": "Avoid if possible",
+      "course_duration_preference": "",
+      "degree_route_preferences": [],
+      "hard_constraints": [
+        "Avoid competitive examinations"
+      ],
+      "missing_profile_fields": []
+    },
+    "primary_career": {
+      "career_id": "c1",
+      "name": "Verified career",
+      "fit_factors": [
+        "Psychology",
+        "Research"
+      ],
+      "concerns": [
+        "Exam constraint"
+      ],
+      "source_record_ids": [
+        "career:c1"
+      ]
+    },
+    "alternative_careers": [],
+    "verified_courses": [],
+    "verified_programmes": [],
+    "verified_exams": [],
+    "verified_scholarships": [],
+    "verified_relationships": [],
+    "verified_admission_cycles": [],
+    "source_records": [
+      {
+        "record_id": "career:c1",
+        "entity_type": "career",
+        "entity_id": "c1",
+        "name": "Verified career",
+        "source_url": "https://official.example/career",
+        "source_domain": "official.example",
+        "verification_status": "verified",
+        "admission_cycle": null,
+        "last_verified_at": "2026-08-01"
+      }
+    ],
+    "deterministic_eligibility": {
+      "status": "insufficient_data",
+      "missing_requirements": [
+        "Verified programme eligibility"
+      ]
+    },
+    "missing_data": [
+      "Programme data is incomplete"
+    ],
+    "personalisation": {
+      "hard_constraints": [],
+      "high_priority_preferences": [],
+      "mixed_interest_combinations": [],
+      "eligibility_risks": [],
+      "financial_constraints": [],
+      "exam_constraints": [],
+      "route_preferences": [],
+      "required_personalisation_effects": []
+    }
+  },
+  "roadmap": {
+    "roadmap_title": "A sourced roadmap",
+    "career_id": "c1",
+    "summary": "Connect psychology, computing, and research without assuming admissions facts.",
+    "why_it_fits": [
+      {
+        "factor": "Research",
+        "student_evidence": "Research is a supplied skill."
+      }
+    ],
+    "important_tradeoffs": [
+      "Programme eligibility is not yet verified."
+    ],
+    "eligibility_summary": {
+      "status": "insufficient_data",
+      "explanation": "Programme-level evidence is missing.",
+      "missing_requirements": [
+        "Verified programme eligibility"
+      ],
+      "source_record_ids": [
+        "career:c1"
+      ]
+    },
+    "stages": [
+      {
+        "stage": "now",
+        "title": "Explore the work",
+        "description": "Complete a small research activity.",
+        "mandatory": false,
+        "status": "not_started",
+        "suggested_target_date": null,
+        "verified_deadline": null,
+        "date_type": "unknown",
+        "source_record_ids": [
+          "career:c1"
+        ],
+        "unverified": false
+      }
+    ],
+    "course_options": [],
+    "college_programmes": [],
+    "exam_steps": [],
+    "backup_routes": [],
+    "next_actions": [
+      {
+        "action": "Discuss the missing programme evidence",
+        "priority": "high",
+        "reason": "Eligibility cannot be established.",
+        "source_record_ids": []
+      }
+    ],
+    "questions_for_counsellor": [
+      "Which verified local routes should be investigated?"
+    ],
+    "missing_or_unverified": [
+      {
+        "field": "programmes",
+        "message": "No verified records supplied."
+      }
+    ],
+    "decisive_constraints": [
+      {
+        "constraint_id": "exam",
+        "constraint_type": "exam_willingness",
+        "student_preference": "Avoid competitive examinations",
+        "effect_on_roadmap": "No exam-dependent route is presented.",
+        "status": "insufficient_verified_data",
+        "affected_section_ids": [
+          "next_actions"
+        ],
+        "source_record_ids": []
+      }
+    ]
+  }
+}

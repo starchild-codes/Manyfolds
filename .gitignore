@@ -31,3 +31,6 @@ reports/*.json
 output/
 tmp/
 docs/evaluation-results/
+
+.env*
+!.env.example

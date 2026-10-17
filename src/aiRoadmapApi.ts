@@ -75,6 +75,8 @@ export type AiRoadmapSource = {
 
 export type AiRoadmapGeneration = {
   id: string
+  version:number
+  counsellorNotes?:string
   roadmap: AiRoadmap
   status: string
   generatedAt: string
@@ -130,7 +132,7 @@ export const generateAiRoadmap = (body: {
 
 export const updateAiRoadmap = (
   id: string,
-  body: { status?: string; counsellorNotes?: string; roadmap?: AiRoadmap },
+  body: { status?: string; counsellorNotes?: string; roadmap?: AiRoadmap; expectedVersion:number },
 ) =>
   request(`/api/ai-roadmaps/${encodeURIComponent(id)}`, {
     method: 'PATCH',
