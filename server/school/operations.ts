@@ -7,6 +7,7 @@ import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { getDatabasePool, attachDatabasePool, checkedDatabaseClient, readDatabase } from '../database.ts'
 import { createAiConfig } from '../ai/config.ts'
 import { authenticateRoadmapRequest, AuthenticationError } from '../ai/auth.ts'
+import { savedPathsRequest,SavedPathError } from './savedPaths.ts'
 
 class OperationError extends Error {readonly statusCode:number;constructor(message:string,statusCode=400){super(message);this.statusCode=statusCode}}
 const reply=(res:ServerResponse,status:number,value:unknown)=>{res.statusCode=status;res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(value))}
@@ -23,6 +24,7 @@ export function schoolOperationsApi(env:Record<string,string|undefined>,authenti
  const mount=(server:ViteDevServer|PreviewServer)=>{
   server.middlewares.use('/api/operations',async(req,res)=>{try{
    const auth=await authenticate(req,pool,config),url=new URL(req.url||'/','http://localhost'),path=url.pathname
+   if(path==='/saved-paths')return await savedPathsRequest(req,res,pool,auth)
    const admin=['owner','admin'].includes(auth.role),writer=admin||auth.role==='counsellor'
    if(req.method==='GET'){
     if(path==='/roadmap-checklist'){
@@ -139,7 +141,7 @@ export function schoolOperationsApi(env:Record<string,string|undefined>,authenti
     if(path==='/export-log'&&req.method==='POST'){const kind=text(body.kind,50);if(!['student_summary','guidance_report','student_roster','roadmap_checklist'].includes(kind))throw new OperationError('Export type is invalid.');await audit(db,auth.organisationId,auth.userId,`export.${kind}`);await db.query('commit');return reply(res,200,{ok:true})}
     throw new OperationError('School operation endpoint not found.',404)
    }catch(error){await db.query('rollback');throw error}finally{db.release()}
-  }catch(error){const known=error instanceof OperationError||error instanceof AuthenticationError||error instanceof ProfileValidationError;if(!known)console.error('School operation failure code:',(error as {code?:string}).code||'unknown',(error as Error).stack?.split('\n').slice(1,4).join('\n'));return reply(res,known?error.statusCode:503,{error:known?error.message:'Could not confirm this operation. Reload before retrying.'})}})
+  }catch(error){const known=error instanceof OperationError||error instanceof AuthenticationError||error instanceof ProfileValidationError||error instanceof SavedPathError;if(!known)console.error('School operation failure code:',(error as {code?:string}).code||'unknown',(error as Error).stack?.split('\n').slice(1,4).join('\n'));return reply(res,known?error.statusCode:503,{error:known?error.message:'Could not confirm this operation. Reload before retrying.'})}})
   attachDatabasePool(pool,server.httpServer)
  }
  return {name:'manyfolds-operations-api',configureServer:mount,configurePreviewServer:mount}

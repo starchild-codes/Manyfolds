@@ -35,7 +35,8 @@
     "test:operations": "node --experimental-strip-types scripts/school-operations-test.mjs",
     "deploy": "node scripts/deploy-manyfolds.mjs",
     "test:vercel": "node --experimental-strip-types scripts/vercel-adapter-test.mjs",
-    "test:roadmap-review": "node --experimental-strip-types scripts/roadmap-review-test.mjs"
+    "test:roadmap-review": "node --experimental-strip-types scripts/roadmap-review-test.mjs",
+    "test:saved-pathways": "node --experimental-strip-types scripts/saved-pathways-test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0",

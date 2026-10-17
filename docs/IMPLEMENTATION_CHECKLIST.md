@@ -20,7 +20,9 @@ Source of truth: Product_info.md. Updated 17 October 2026.
 - [x] Replace generic local-note Workspace pages and remove unreachable legacy catalogue UI.
 - [x] Production Node server serves all APIs and SPA routes without Vite.
 - [x] Production package runs with runtime dependencies only.
-- [x] All 104 public database tables have RLS enabled.
+- [x] Recoverable UI error screen for rendering/chunk-load failures; explicit JavaScript-required fallback.
+- [x] Build, lint and app-test GitHub Actions workflow prepared for pushes and pull requests. It needs to reach the remote repository to become active.
+- [x] All 107 public database tables have RLS enabled (17 October audit).
 - [x] Official-source claim gates, expiry, review queue and scheduled freshness checks.
 - [x] Recheck changed NLSIU, NID and NSP pilot facts against current official sources on 9 October.
 
@@ -37,7 +39,7 @@ registry and summary export in the local production server. No real student note
 diagnostic or guidance record was created by browser checks. These checks do not
 establish full coverage of all forms or the deployed application.
 
-Catalogue coverage: 37 active claims, four verified scholarship listings,
+Catalogue coverage after the 17 October source audit: 32 active claims, four verified scholarship listings,
 31 staged candidates and twelve checked source monitors. This is a verified pilot,
 not comprehensive national coverage. Changed sources can reduce coverage pending review.
 
@@ -49,6 +51,7 @@ Manyfolds is not 100% commercially ready while these requirements remain open.
 - [x] Restore Vercel authentication, link manyfolds, configure environment settings and deploy https://manyfolds.vercel.app. Hosted HTTP and database readiness checks pass.
 - [ ] Upgrade the current Vercel Hobby team before commercial use.
 - [ ] Verify real sign-in, callback, fresh-school onboarding, invitation acceptance and persistence on the deployed origin.
+- [ ] Configure a custom SMTP sender and verify real signup-confirmation/password-reset delivery. No custom SMTP host is currently configured; Supabase's built-in sender is restricted to project-team addresses.
 - [ ] Full browser QA of critical journeys, mobile layouts, accessibility, loading/error states and concurrent edits.
 - [x] Structured student academics (manual/CSV/history), interests, skills evidence, restricted practical constraints, family conversations and career exploration. Approved guardian summaries export separately.
 - [x] Shared checklist progress per student and direction, conflict checks and teacher read access.
@@ -57,7 +60,9 @@ Manyfolds is not 100% commercially ready while these requirements remain open.
 - [x] Roadmap review, approval and publication gates; atomic version conflicts; edits reset approval; private saved review notes.
 - [ ] Full pathway/action-plan workflow: approval/publish lifecycle, alternatives, richer task dependencies and final shareable outputs. Checklist progress now persists to the server.
 - [ ] Verify authenticated live AI generation and approval/evaluation gates in production. Model choices were preserved in this work.
-- [ ] Expanded session fields, pre-session briefing, private session notes and required document variants.
+- [x] Expanded session records, active staff assignment, live pre-session briefing, completion outcome gate, author-private notes and separately approved guardian summaries. Session/parent summaries, action sheets and own internal case notes export as text documents.
+- [ ] Additional note visibility for separately authorized school leadership; printable document layouts; linked task/calendar creation from recorded session actions.
+- [x] Personal My Plan bookmarks persist across devices, with user/school isolation, idempotent saves, one preferred option and explicit import of older browser bookmarks. This is distinct from an approved student action plan.
 - [ ] Task recurrence, assignment controls, follow-up automation and notifications.
 - [ ] Full staff-role matrix from the specification beyond owner/admin/counsellor/teacher.
 - [ ] Outcome, cohort and equity reports; current counts do not measure readiness or outcomes.
@@ -73,3 +78,7 @@ unchecked production journeys as passed to make this checklist appear complete.
 Profile and document migrations are applied in the configured project. The operations HTTP suite checks profile revisions, invalid dates, teacher restrictions, approved-summary isolation, academic CSV duplicates, shared planning conflicts, private/shared documents, file signature rejection, idempotent uploads, tampered download links, archive/restore and revoked membership. Only temporary schools were modified. The RLS audit reports 104/104 public tables enabled. New profile/document screens build and lint; browser verification of these screens is incomplete because Computer Use stopped when it could not reliably identify the Windows browser URL.
 
 The Manyfolds Vercel adapter and deployment guard are implemented. Local rewritten-API and roadmap lifecycle integration tests pass. Vercel authentication succeeded and production is deployed. Hosted SPA routes, database health, anonymous API rejection, unknown routes and cross-origin mutation rejection pass. Supabase production callback configuration is applied. Authenticated browser journeys remain unverified; the hosting team is still on Hobby.
+
+The session and personal-bookmark migrations are applied. Guidance integration tests exercise completion validation, date validation, staff assignment, atomic versions, private-note conflicts, colleague denial, briefing, approved-only guardian exports, internal export isolation and redacted audits. Bookmark integration tests exercise persistence, duplicate retries, same-school author isolation, other-school isolation, teacher bookmarks, simultaneous preferred-option updates, quota and RLS. The full app, operations, school, student, RLS, roadmap review, production HTTP and adapter suites passed. One bookmark test initially hit an intermittent database acquisition failure; a clean rerun passed. This remains a real availability concern to monitor, not a hidden test success.
+
+Seventeen existing pilot claims were rechecked against the current NLSIU, NID and NSP pages on 17 October. Other stale claims remain withheld. The scheduled-workflow source now runs the strict pilot recheck after freshness/staging checks; this workflow change still needs to reach the remote repository before it affects GitHub's schedule.
