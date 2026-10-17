@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { supabase } from './supabaseClient'
 import './Auth.css'
+import { authRedirectError,authErrorMessage,withAuthTimeout } from './authErrors'
 
 const go = (path: string) => {
   if(path.startsWith('/invite/'))sessionStorage.removeItem('manyfolds-auth-return')
@@ -27,6 +28,7 @@ export function SignIn() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const googleInFlight=useRef(false)
 
   const reset = () => {
     setError('')
@@ -34,26 +36,27 @@ export function SignIn() {
   }
 
   const google = async () => {
+    if(googleInFlight.current)return
     if (!supabase) {
       setError('Public authentication configuration is unavailable.')
       return
     }
 
-    sessionStorage.setItem('manyfolds-auth-return',signInDestination())
+    googleInFlight.current=true
     setBusy(true)
     reset()
-    const { error: authError } = await supabase.auth.signInWithOAuth({
+    try{
+    sessionStorage.setItem('manyfolds-auth-return',signInDestination())
+    const { error: authError } = await withAuthTimeout(supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
         skipBrowserRedirect: false,
       },
-    })
-
-    if (authError) {
-      setError(authError.message)
-      setBusy(false)
-    }
+    }))
+    if(authError)throw authError
+    }catch(reason){setError(authErrorMessage(reason))}
+    finally{googleInFlight.current=false;setBusy(false)}
   }
 
   const emailAction = async (event: FormEvent) => {
@@ -63,10 +66,10 @@ export function SignIn() {
       return
     }
 
-    sessionStorage.setItem('manyfolds-auth-return',signInDestination())
     setBusy(true)
     reset()
     try {
+      sessionStorage.setItem('manyfolds-auth-return',signInDestination())
       if (mode === 'reset') {
         const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth/callback`,
@@ -212,14 +215,15 @@ export function AuthCallback() {
       }
 
       const params = new URLSearchParams(window.location.search)
-      const providerError = params.get('error_description') || params.get('error')
+      const providerError = authRedirectError(window.location.search,window.location.hash)
       if (providerError) {
         setState('error')
-        setMessage(providerError)
+        setMessage(authErrorMessage(providerError))
         return
       }
 
-      const { data: sessionData } = await supabase.auth.getSession()
+      const { data: sessionData,error:sessionError } = await withAuthTimeout(supabase.auth.getSession())
+      if(sessionError)throw sessionError
       if (sessionData.session) {
         go(signInDestination())
         return
@@ -232,22 +236,19 @@ export function AuthCallback() {
         return
       }
 
-      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+      const { data:exchangeData,error: exchangeError } = await withAuthTimeout(supabase.auth.exchangeCodeForSession(code))
       if (exchangeError) {
         setState('error')
-        setMessage(
-          exchangeError.message.includes('code verifier')
-            ? 'This sign-in attempt has expired. Please start a new sign-in from this browser.'
-            : exchangeError.message,
-        )
+        setMessage(authErrorMessage(exchangeError))
         return
       }
+      if(!exchangeData.session)throw new Error('The sign-in service did not return a session. Please start again.')
 
       window.history.replaceState({}, '', '/auth/callback')
       go(signInDestination())
     }
 
-    void complete()
+    void complete().catch(reason=>{setState('error');setMessage(authErrorMessage(reason))})
   }, [])
 
   return (
