@@ -1,8 +1,9 @@
+import { withAuthTimeout } from './authErrors'
 import { supabase } from './supabaseClient'
 import type { Profile } from './recommendationEngine'
 export async function schoolRequest<T>(path:string,init?:RequestInit):Promise<T>{
  if(!supabase)throw new Error('Authentication is unavailable.')
- const {data:{session}}=await supabase.auth.getSession();if(!session)throw new Error('Please sign in again.')
+ const {data:{session}}=await withAuthTimeout(supabase.auth.getSession());if(!session)throw new Error('Please sign in again.')
  const method=init?.method||'GET'
  let input:Record<string,unknown>={}
  try{if(typeof init?.body==='string')input=JSON.parse(init.body)}catch{/* Server validation handles malformed requests. */}

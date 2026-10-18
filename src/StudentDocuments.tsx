@@ -1,9 +1,10 @@
+import { withAuthTimeout } from './authErrors'
 import './SchoolWorkflows.css'
 import { useCallback,useEffect,useState,useRef } from 'react'
 import { supabase } from './supabaseClient'
 type DocumentRecord={id:string;filename:string;category:string;visibility:string;size_bytes:number;created_at:string;archived_at:string|null}
 const message=(error:unknown)=>error instanceof Error?error.message:'The document operation failed.'
-async function request<T>(path:string,init?:RequestInit):Promise<T>{if(!supabase)throw Error('Authentication is unavailable.');const {data:{session}}=await supabase.auth.getSession();if(!session)throw Error('Please sign in again.');const response=await fetch(`/api/student-documents${path}`,{...init,signal:AbortSignal.timeout(45_000),headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`}});const result=await response.json().catch(()=>({}));if(!response.ok)throw Error(result.error||'Document service is unavailable.');return result}
+async function request<T>(path:string,init?:RequestInit):Promise<T>{if(!supabase)throw Error('Authentication is unavailable.');const {data:{session}}=await withAuthTimeout(supabase.auth.getSession());if(!session)throw Error('Please sign in again.');const response=await fetch(`/api/student-documents${path}`,{...init,signal:AbortSignal.timeout(45_000),headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`}});const result=await response.json().catch(()=>({}));if(!response.ok)throw Error(result.error||'Document service is unavailable.');return result}
 const base64=(file:File)=>new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(Error('The file could not be read.'));reader.readAsDataURL(file)})
 export default function StudentDocuments({studentKey,canEdit}:{studentKey:string;canEdit:boolean}){
  const [maxFileBytes,setMaxFileBytes]=useState(3_145_728)

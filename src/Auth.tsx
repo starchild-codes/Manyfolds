@@ -267,6 +267,7 @@ export function AuthCallback() {
 export function ProtectedWorkspace({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
   const [signedIn, setSignedIn] = useState(false)
+  const [sessionCheckError, setSessionCheckError] = useState('')
 
   useEffect(() => {
     if (!supabase) {
@@ -274,17 +275,27 @@ export function ProtectedWorkspace({ children }: { children: React.ReactNode }) 
       return
     }
 
-    void supabase.auth.getSession().then(({ data }) => {
+    let active = true, authResolved = false
+    void withAuthTimeout(supabase.auth.getSession()).then(({ data, error }) => {
+      if (!active || authResolved) return
+      if (error) throw error
       setSignedIn(Boolean(data.session))
+      setReady(true)
+    }).catch(error => {
+      if (!active || authResolved) return
+      setSessionCheckError(authErrorMessage(error))
       setReady(true)
     })
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return
+      authResolved = true
+      setSessionCheckError('')
       setSignedIn(Boolean(session))
       setReady(true)
     })
-    return () => subscription.unsubscribe()
+    return () => { active = false; subscription.unsubscribe() }
   }, [])
 
   if (!ready) {
@@ -299,5 +310,6 @@ export function ProtectedWorkspace({ children }: { children: React.ReactNode }) 
     )
   }
 
+  if (sessionCheckError) return <main className="auth-page auth-callback"><section className="auth-card"><p className="eyebrow">Manyfolds</p><h2>Could not check your session</h2><p role="alert">{sessionCheckError}</p><button className="email-button" onClick={() => window.location.reload()}>Retry session check</button></section></main>
   return signedIn ? children : <SignIn />
 }

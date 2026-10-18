@@ -1,13 +1,15 @@
+import { withAuthTimeout } from './authErrors'
 import { supabase } from './supabaseClient'
 
 type PrivatePayload = { records?: any[]; record?: any; ok?: boolean; error?: string }
 
 const request = async (path: string, init?: RequestInit): Promise<PrivatePayload> => {
   if (!supabase) throw new Error('Authentication is unavailable.')
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session } } = await withAuthTimeout(supabase.auth.getSession())
   if (!session) throw new Error('Please sign in to access private counsellor records.')
   const response = await fetch(path, {
     ...init,
+    signal: init?.signal || AbortSignal.timeout(30_000),
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}`, ...(init?.headers || {}) },
   })
   const payload = (await response.json().catch(() => ({}))) as PrivatePayload

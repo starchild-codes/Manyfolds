@@ -1,3 +1,4 @@
+import { withAuthTimeout } from './authErrors'
 import { supabase } from './supabaseClient'
 
 export type VerificationTask = {
@@ -64,10 +65,11 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   if (!supabase) throw new Error('Authentication is unavailable.')
   const {
     data: { session },
-  } = await supabase.auth.getSession()
+  } = await withAuthTimeout(supabase.auth.getSession())
   if (!session) throw new Error('Please sign in to access data verification.')
   const response = await fetch(path, {
     ...init,
+    signal: init?.signal || AbortSignal.timeout(30_000),
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,

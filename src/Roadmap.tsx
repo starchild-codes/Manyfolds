@@ -303,7 +303,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
         </div>
       </section>
       {loadingSaved && !generation && <div className="panel roadmap-loading"><LoadingSkeleton label="Loading saved roadmap" rows={2} /></div>}
-      {generationError && <div className="ai-roadmap-error" role="alert"><span>{savedDraftInvalid ? 'The saved AI draft is withheld.' : errorSource === 'load' ? 'We could not check for your saved roadmap.' : 'We could not finish generating the roadmap.'} {generationError} {generation && 'Your existing saved roadmap is still available.'}</span><button className="secondary" onClick={() => errorSource === 'load' && !savedDraftInvalid ? setLoadAttempt((attempt) => attempt + 1) : void generate(false)}>{savedDraftInvalid ? 'Generate a new draft' : 'Try again'}</button></div>}
+      {generationError && <div className="ai-roadmap-error" role="alert"><span>{savedDraftInvalid ? 'The saved AI draft is withheld.' : errorSource === 'load' ? 'We could not check for your saved roadmap.' : 'We could not finish generating the roadmap.'} {generationError} {generation && 'Your existing saved roadmap is still available.'}</span><button className="secondary" disabled={loadingSaved || generationState === 'loading' || ((savedDraftInvalid || errorSource !== 'load') && !canEdit)} onClick={() => errorSource === 'load' && !savedDraftInvalid ? setLoadAttempt((attempt) => attempt + 1) : void generate(false)}>{savedDraftInvalid ? 'Generate a new draft' : 'Try again'}</button></div>}
 
       {generation && (
         <section id="ai-roadmap-draft" className="panel ai-roadmap-draft">

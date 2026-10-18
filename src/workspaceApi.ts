@@ -1,11 +1,12 @@
+import { withAuthTimeout } from './authErrors'
 import { supabase } from './supabaseClient'
 
 export type Workspace = { organisation_id: string; role: string; name: string; school_type?: string; city?: string; state?: string; country?: string; approximate_student_count?: number; classes?: Array<{class_name:string;sections:string[]}> }
 const request = async (path: string, init?: RequestInit) => {
   if (!supabase) throw new Error('Authentication is unavailable.')
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session } } = await withAuthTimeout(supabase.auth.getSession())
   if (!session) throw new Error('Please sign in to continue.')
-  const response = await fetch(path, { ...init, headers: { 'Content-Type':'application/json', Authorization:`Bearer ${session.access_token}`, ...(init?.headers||{}) } })
+  const response = await fetch(path, { ...init, signal: init?.signal || AbortSignal.timeout(30_000), headers: { 'Content-Type':'application/json', Authorization:`Bearer ${session.access_token}`, ...(init?.headers||{}) } })
   const body = await response.json().catch(()=>({})) as { memberships?:Workspace[]; workspace?:Workspace; error?:string }
   if (!response.ok) throw new Error(body.error||'Workspace information could not be loaded.')
   return body
