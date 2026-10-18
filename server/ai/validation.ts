@@ -1,9 +1,10 @@
 import { Ajv } from 'ajv'
-import { ROADMAP_JSON_SCHEMA } from './schema.ts'
+import { ROADMAP_JSON_SCHEMA, roadmapResponseSchema } from './schema.ts'
 import type { RoadmapEvidencePackage, RoadmapOutput } from './types.ts'
 
 const ajv = new Ajv({ allErrors: true, strict: true })
 const validateSchema = ajv.compile(ROADMAP_JSON_SCHEMA)
+const validateSparseGeneration = ajv.compile(roadmapResponseSchema(false))
 
 export type ValidationResult = {
   roadmap: RoadmapOutput | null
@@ -41,11 +42,13 @@ export function safelyParseRoadmapContent(content: string): {
 export function parseAndValidateRoadmap(
   raw: unknown,
   evidence: RoadmapEvidencePackage,
+  forGeneration = false,
 ): ValidationResult {
   const errors: string[] = []
   const events: ValidationResult['events'] = []
-  if (!validateSchema(raw)) {
-    const details = (validateSchema.errors || [])
+  const validate = forGeneration && !evidence.verified_relationships.length ? validateSparseGeneration : validateSchema
+  if (!validate(raw)) {
+    const details = (validate.errors || [])
       .slice(0, 12)
       .map((error: { instancePath?: string; message?: string }) =>
         `${error.instancePath || '/'} ${error.message || 'is invalid'}`,
@@ -244,7 +247,7 @@ export function parseAndValidateRoadmap(
   }))
 
   if (
-    evidence.deterministic_eligibility.status === 'insufficient_data' &&
+    (!evidence.verified_programmes.length || evidence.deterministic_eligibility.status === 'insufficient_data') &&
     roadmap.eligibility_summary.status !== 'insufficient_data'
   ) {
     errors.push('Eligibility status contradicted deterministic insufficient-data result')
@@ -260,9 +263,19 @@ export function parseAndValidateRoadmap(
 
   const classificationText = JSON.stringify(roadmap)
   if (!evidence.verified_relationships.length) {
-    const statements = [roadmap.summary, ...roadmap.important_tradeoffs, ...roadmap.stages.map((stage) => `${stage.title} ${stage.description}`), ...roadmap.next_actions.map((action) => `${action.action} ${action.reason}`)]
+    const statements = [roadmap.summary, ...roadmap.important_tradeoffs, ...roadmap.stages.flatMap((stage) => [stage.title, stage.description]), ...roadmap.next_actions.map((action) => `${action.action} ${action.reason}`)]
     if (statements.some((statement) => /\b(?:need|must|have to|require(?:s|d)?|necessary|essential)\b[^.!?]{0,70}\b(?:degree|course|programme|exam)\b/i.test(statement))) {
       errors.push('Roadmap asserted an unsupported education or examination requirement')
+    }
+    if (statements.some((statement) => /\b(?:degrees?|courses?|programmes?)\b[^.!?]{0,140}\b(?:leads?|leading)\s+to\s+(?:a\s+)?career\b/i.test(statement))) {
+      errors.push('Roadmap asserted an unsupported education-to-career relationship')
+    }
+    const educationTerms = /\b(?:degrees?|courses?|programmes?|programs?|bachelors?|masters?|llb|llm|btech|mtech|diplomas?|certifications?|exams?|examinations?|admissions?|entrance|universities|university|colleges?|institutions?|scholarships?|tuition|fees?|cutoffs?|eligibility)\b/i
+    const instructionTerms = /\b(?:prepare|apply|must|should|explore|pursue|consider|need|require|required|higher|secure|guarantee|leads?|leading|qualify|qualifies|offers?|offering)\b/i
+    const safeResearch = (statement: string) => /^\s*(?:research|verify|check|ask|discuss|consult|identify|find out|confirm)\b/i.test(statement) && !instructionTerms.test(statement)
+    const missingEvidence = (statement: string) => /\b(?:no verified|not yet verified|not verified|without assuming|not assuming|unavailable|not available|missing|insufficient|lack|unclear)\b/i.test(statement) && /\b(?:verified|evidence|data|records|facts)\b/i.test(statement) && !/\b(?:prepare|apply|must|should|explore|pursue|consider|higher|secure|guarantee|leads?|leading|qualify|qualifies|offers?|offering)\b/i.test(statement)
+    if (statements.some(statement => educationTerms.test(statement) && !safeResearch(statement) && !missingEvidence(statement))) {
+      errors.push('Roadmap included education or admissions advice without verified pathway evidence')
     }
     if (statements.some((statement) => /\b(?:institutions?|colleges?|universities?)\s+(?:in\s+[^.!?]{1,45}\s+)?(?:offering|that offer)\b|\bapply\s+to\s+(?:institutions?|colleges?|universities?|degree|programmes?)\b/i.test(statement))) {
       errors.push('Roadmap asserted an unsupported institution or application route')

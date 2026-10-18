@@ -1,4 +1,4 @@
-import { ROADMAP_JSON_SCHEMA } from './schema.ts'
+import { ROADMAP_JSON_SCHEMA, roadmapResponseSchema } from './schema.ts'
 import { ROADMAP_SYSTEM_PROMPT } from './prompt.ts'
 import type { AiConfig } from './config.ts'
 import type { RoadmapEvidencePackage } from './types.ts'
@@ -39,7 +39,7 @@ export function compactEvidence(
     concerns: career.concerns.slice(0, 2).map((item) => trim(item, 80)),
   }))
 
-  const fixedTokens = estimateTokens(ROADMAP_SYSTEM_PROMPT) + estimateTokens(ROADMAP_JSON_SCHEMA) + 80
+  const fixedTokens = estimateTokens(ROADMAP_SYSTEM_PROMPT) + Math.max(estimateTokens(ROADMAP_JSON_SCHEMA), estimateTokens(roadmapResponseSchema(false))) + 80
   let evidenceTokens = estimateTokens(compact)
   let total = fixedTokens + evidenceTokens
 
@@ -78,6 +78,11 @@ export function compactEvidence(
     compact.alternative_careers=[]; compact.verified_courses=[]; compact.verified_programmes=[]
     compact.verified_exams=[]; compact.verified_scholarships=[]; compact.verified_relationships=[]
     compact.verified_admission_cycles=[]; compact.source_records=[]; compact.missing_data=compact.missing_data.slice(0,3)
+    compact.deterministic_eligibility = {
+      status: 'insufficient_data',
+      missing_requirements: ['Verified programme-level eligibility records are not included in this draft.'],
+    }
+    compact.missing_data = ['Programme admissions and eligibility cannot be established from the evidence included in this draft.', ...compact.missing_data].slice(0, 3)
     compact.personalisation={...compact.personalisation,hard_constraints:compact.personalisation.hard_constraints.slice(0,4),high_priority_preferences:[],mixed_interest_combinations:compact.personalisation.mixed_interest_combinations.slice(0,1),eligibility_risks:[],financial_constraints:compact.personalisation.financial_constraints.slice(0,1),exam_constraints:compact.personalisation.exam_constraints.slice(0,1),route_preferences:compact.personalisation.route_preferences.slice(0,1),required_personalisation_effects:compact.personalisation.required_personalisation_effects.slice(0,1)}
     evidenceTokens = estimateTokens(compact)
     total = fixedTokens + evidenceTokens

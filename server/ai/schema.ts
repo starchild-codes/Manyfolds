@@ -163,3 +163,16 @@ export const ROADMAP_JSON_SCHEMA = {
     decisive_constraints: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['constraint_id','constraint_type','student_preference','effect_on_roadmap','status','affected_section_ids','source_record_ids'], properties: { constraint_id: text, constraint_type: { type: 'string', enum: ['exam_willingness','budget','location','subject_eligibility','route_preference','course_duration','other'] }, student_preference: text, effect_on_roadmap: text, status: { type: 'string', enum: ['accommodated','partially_accommodated','conflicts_with_available_routes','insufficient_verified_data'] }, affected_section_ids: texts, source_record_ids: texts } } },
   },
 } as const
+
+export const SPARSE_ROADMAP_EMPTY_SECTIONS = ['stages', 'important_tradeoffs', 'course_options', 'college_programmes', 'exam_steps', 'backup_routes'] as const
+
+export function roadmapResponseSchema(hasVerifiedRelationships: boolean) {
+  if (hasVerifiedRelationships) return ROADMAP_JSON_SCHEMA
+  return {
+    ...ROADMAP_JSON_SCHEMA,
+    properties: {
+      ...ROADMAP_JSON_SCHEMA.properties,
+      ...Object.fromEntries(SPARSE_ROADMAP_EMPTY_SECTIONS.map(key => [key, { ...ROADMAP_JSON_SCHEMA.properties[key], maxItems: 0 }])),
+    },
+  }
+}

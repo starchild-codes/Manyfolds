@@ -51,35 +51,34 @@ async function refreshCatalogue(pool: Pool, config: AiConfig) {
   })
   if (!response.ok) throw new Error('OpenRouter model catalogue is unavailable')
   const payload = (await response.json()) as { data?: CatalogueModel[] }
-  const models = (payload.data || []).filter((model) => model.id)
-  for (const model of models) {
-    const cost = estimatedCost(model)
-    await pool.query(
-      `insert into ai_model_catalogue
-       (model_id,display_name,context_length,prompt_price_per_token,completion_price_per_token,
-        request_fee,supported_parameters,architecture,estimated_roadmap_cost,available,fetched_at,raw_metadata)
-       values($1,$2,$3,$4,$5,$6,$7,$8,$9,true,now(),$10)
-       on conflict(model_id) do update set
-        display_name=excluded.display_name,context_length=excluded.context_length,
-        prompt_price_per_token=excluded.prompt_price_per_token,
-        completion_price_per_token=excluded.completion_price_per_token,
-        request_fee=excluded.request_fee,supported_parameters=excluded.supported_parameters,
-        architecture=excluded.architecture,estimated_roadmap_cost=excluded.estimated_roadmap_cost,
-        available=true,fetched_at=now(),raw_metadata=excluded.raw_metadata`,
-      [
-        model.id,
-        model.name || model.id,
-        model.context_length || null,
-        Number.isFinite(price(model.pricing?.prompt)) ? price(model.pricing?.prompt) : null,
-        Number.isFinite(price(model.pricing?.completion)) ? price(model.pricing?.completion) : null,
-        Number.isFinite(price(model.pricing?.request)) ? price(model.pricing?.request) : null,
-        model.supported_parameters || [],
-        model.architecture || {},
-        Number.isFinite(cost) ? cost : null,
-        model,
-      ],
-    )
-  }
+  const models = [...new Map((payload.data || []).filter(model=>typeof model.id==='string'&&model.id).map(model=>[model.id,model])).values()]
+  if(!models.length)throw new Error('OpenRouter returned an empty model catalogue')
+  const records=models.map(model=>{
+    const cost=estimatedCost(model)
+    return {model_id:model.id,display_name:model.name||model.id,context_length:model.context_length||null,
+      prompt_price_per_token:Number.isFinite(price(model.pricing?.prompt))?price(model.pricing?.prompt):null,
+      completion_price_per_token:Number.isFinite(price(model.pricing?.completion))?price(model.pricing?.completion):null,
+      request_fee:Number.isFinite(price(model.pricing?.request))?price(model.pricing?.request):null,
+      supported_parameters:model.supported_parameters||[],architecture:model.architecture||{},
+      estimated_roadmap_cost:Number.isFinite(cost)?cost:null,raw_metadata:model}
+  })
+  // One atomic write avoids hundreds of database round trips on a generation request.
+  // Availability metadata never changes the reviewed allowlist or its priority order.
+  await pool.query(
+    `insert into ai_model_catalogue
+      (model_id,display_name,context_length,prompt_price_per_token,completion_price_per_token,
+       request_fee,supported_parameters,architecture,estimated_roadmap_cost,available,fetched_at,raw_metadata)
+     select model_id,display_name,context_length,prompt_price_per_token,completion_price_per_token,
+       request_fee,supported_parameters,architecture,estimated_roadmap_cost,true,now(),raw_metadata
+     from jsonb_to_recordset($1::jsonb) as entry(model_id text,display_name text,context_length integer,
+       prompt_price_per_token numeric,completion_price_per_token numeric,request_fee numeric,
+       supported_parameters text[],architecture jsonb,estimated_roadmap_cost numeric,raw_metadata jsonb)
+     on conflict(model_id) do update set
+       display_name=excluded.display_name,context_length=excluded.context_length,
+       prompt_price_per_token=excluded.prompt_price_per_token,completion_price_per_token=excluded.completion_price_per_token,
+       request_fee=excluded.request_fee,supported_parameters=excluded.supported_parameters,
+       architecture=excluded.architecture,estimated_roadmap_cost=excluded.estimated_roadmap_cost,
+       available=true,fetched_at=now(),raw_metadata=excluded.raw_metadata`,[JSON.stringify(records)])
   return models
 }
 
@@ -89,10 +88,10 @@ export async function rankAllowedModels(pool: Pool, config: AiConfig): Promise<R
   }
 
   const latest = await pool.query(
-    'select max(fetched_at) latest from ai_model_catalogue where model_id=any($1::text[])',
+    'select min(fetched_at) latest,count(*)::int total from ai_model_catalogue where model_id=any($1::text[])',
     [config.allowedModels],
   )
-  const fetchedAt = latest.rows[0]?.latest ? new Date(latest.rows[0].latest).getTime() : 0
+  const fetchedAt = Number(latest.rows[0]?.total)===new Set(config.allowedModels).size&&latest.rows[0]?.latest ? new Date(latest.rows[0].latest).getTime() : 0
   if (!fetchedAt || Date.now() - fetchedAt > config.catalogueTtlMs) {
     try {
       await refreshCatalogue(pool, config)
@@ -113,7 +112,8 @@ export async function rankAllowedModels(pool: Pool, config: AiConfig): Promise<R
 
   const rows = await pool.query(
     `select c.model_id,c.estimated_roadmap_cost,c.context_length,c.supported_parameters,
-            c.architecture,c.raw_metadata,coalesce(h.healthy,true) healthy
+            c.architecture,c.raw_metadata,
+            (coalesce(h.healthy,true) or h.updated_at<now()-interval '15 minutes') healthy
      from ai_model_catalogue c
      join ai_model_allowlist a on a.model_id=c.model_id
      left join ai_model_health h on h.model_id=c.model_id

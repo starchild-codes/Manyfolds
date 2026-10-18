@@ -103,7 +103,9 @@ export class RoadmapService {
       status: row.status,
       generatedAt: row.generated_at,
       updatedAt: row.updated_at,
-      notice: row.model_generated_notice,
+      notice: evidence?.source_records.some(source => source.verification_status === 'verified')
+        ? row.model_generated_notice
+        : 'AI-generated exploration guidance based on the saved profile. No source-verified admissions guidance is included.',
       validationWarnings: Array.isArray(row.validation_errors)
         ? row.validation_errors.filter((item): item is string => typeof item === 'string')
         : [],
@@ -131,15 +133,18 @@ export class RoadmapService {
       [auth.organisationId, studentExternalId],
     )
     if (!result.rowCount) return null
-    return this.safeGenerationResponse(result.rows[0], true,auth)
+    const generation = await this.safeGenerationResponse(result.rows[0], true,auth)
+    if (!generation) throw new RoadmapServiceError('The saved AI draft no longer passes verification. Generate a new draft using current evidence.', 422)
+    return generation
   }
 
   async generate(auth: AuthContext, request: GenerationRequest) {
+    const deadline = Date.now() + 100_000
     try {
       if (!request.profile || !request.primaryCareer?.name) {
         throw new RoadmapServiceError('A completed profile and selected career are required.')
       }
-      if(request.studentExternalId){const student=await this.pool.query('select 1 from student_registry_records where organisation_id=$1 and external_key=$2',[auth.organisationId,request.studentExternalId]);if(!student.rowCount)throw new RoadmapServiceError('This student is unavailable in your school.',404)}
+      if(request.studentExternalId){const student=await this.pool.query('select 1 from student_registry_records where organisation_id=$1 and external_key=$2 and archived_at is null',[auth.organisationId,request.studentExternalId]);if(!student.rowCount)throw new RoadmapServiceError('This student is unavailable or archived in your school.',404)}
       const evidence = await buildEvidencePackage(this.pool, auth, request)
       const compacted = compactEvidence(evidence, this.config)
       const studentExternalId = compacted.evidence.student.student_id
@@ -224,6 +229,10 @@ export class RoadmapService {
         if (maxOutput < 128) break
 
         try {
+          const remainingMs = deadline - Date.now()
+          if (remainingMs < 1_000) {
+            throw new RoadmapServiceError('Roadmap generation took too long. Please try again.', 503)
+          }
           const response = await callOpenRouter(
             this.config,
             model.id,
@@ -231,6 +240,7 @@ export class RoadmapService {
             maxOutput,
             model.supportsReasoning,
             index === 1,
+            remainingMs,
           )
           const conservativeInput = Math.max(
             response.usage.inputTokens,
@@ -270,16 +280,16 @@ export class RoadmapService {
             throw new TokenBudgetError('The provider reported usage above the session token ceiling.')
           }
 
-          const validation = parseAndValidateRoadmap(response.rawRoadmap, compacted.evidence)
+          const validation = parseAndValidateRoadmap(response.rawRoadmap, compacted.evidence, true)
           await recordModelHealth(
             this.pool,
             response.modelUsed,
-            validation.schemaValid,
+            validation.schemaValid && validation.factualValid,
             response.latencyMs,
             validation.schemaValid,
           )
           if (!validation.schemaValid || !validation.roadmap) {
-            lastError = new Error('Invalid structured response')
+            lastError = new RoadmapServiceError('The AI response could not be saved as a valid roadmap. Please try again.', 422)
             if (index === 0) retryPrimary = true
             await this.pool.query(
               `insert into ai_validation_failures
@@ -291,7 +301,7 @@ export class RoadmapService {
           }
 
           if (!validation.factualValid) {
-            lastError = new Error('Roadmap contained unsupported factual claims or omitted constraints')
+            lastError = new RoadmapServiceError('The AI response failed source or constraint verification. Please try again.', 422)
             if (index === 0) retryPrimary = true
             await this.pool.query(
               `insert into ai_validation_failures
@@ -354,7 +364,10 @@ export class RoadmapService {
              values($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11,true,$12,$13)
              on conflict(organisation_id,student_external_id,generation_hash)
              do update set roadmap=excluded.roadmap,validation_errors=excluded.validation_errors,
-               updated_at=now()
+               student_roadmap_id=excluded.student_roadmap_id,status='draft',
+               reviewed_at=null,approved_at=null,version=roadmap_generations.version+1,
+               schema_valid=excluded.schema_valid,factual_validation_valid=excluded.factual_validation_valid,
+               generated_at=now(),updated_at=now(),updated_by=excluded.counsellor_id
              returning id,version,counsellor_notes,roadmap,status,generated_at,updated_at,model_generated_notice,
                validation_errors,evidence_snapshot_id`,
             [
@@ -503,7 +516,9 @@ export class RoadmapService {
     const existing = await this.pool.query(
       `select g.*,e.evidence
        from roadmap_generations g join roadmap_evidence_snapshots e on e.id=g.evidence_snapshot_id
-       where g.id=$1 and g.organisation_id=$2`,
+       where g.id=$1 and g.organisation_id=$2
+         and not exists(select 1 from student_registry_records s where s.organisation_id=g.organisation_id
+           and s.external_key=g.student_external_id and s.archived_at is not null)`,
       [generationId, auth.organisationId],
     )
     if (!existing.rowCount) throw new RoadmapServiceError('Roadmap not found.', 404)

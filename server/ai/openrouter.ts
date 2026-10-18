@@ -1,6 +1,6 @@
 import type { AiConfig } from './config.ts'
 import { ROADMAP_SYSTEM_PROMPT } from './prompt.ts'
-import { ROADMAP_JSON_SCHEMA } from './schema.ts'
+import { roadmapResponseSchema } from './schema.ts'
 import type { GenerationUsage, RoadmapEvidencePackage } from './types.ts'
 
 export class OpenRouterError extends Error {
@@ -42,6 +42,7 @@ export async function callOpenRouter(
   maxOutputTokens: number,
   supportsReasoning = false,
   correction = false,
+  timeoutMs = 45_000,
 ): Promise<{
   rawRoadmap: unknown
   usage: GenerationUsage
@@ -68,7 +69,7 @@ export async function callOpenRouter(
         json_schema: {
           name: 'manyfolds_roadmap',
           strict: true,
-          schema: ROADMAP_JSON_SCHEMA,
+          schema: roadmapResponseSchema(evidence.verified_relationships.length > 0),
         },
       },
       provider: { require_parameters: true, allow_fallbacks: false },
@@ -83,7 +84,7 @@ export async function callOpenRouter(
         'X-Title': 'Manyfolds',
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(45_000),
+      signal: AbortSignal.timeout(Math.max(1, Math.min(45_000, timeoutMs))),
     })
   } catch {
     throw new OpenRouterError(

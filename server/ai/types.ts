@@ -22,6 +22,7 @@ export type RoadmapStudentSummary = {
   student_id: string
   grade_level: string
   board: string
+  current_location?: { state: string; city: string }
   current_subjects: string[]
   subject_affinities: string[]
   subject_avoidances: string[]

@@ -36,5 +36,7 @@ try{
  const timestamps=(await db.query('select approved_at,reviewed_at from roadmap_generations where id=$1',[id])).rows[0];assert.equal(timestamps.approved_at,null);assert.equal(timestamps.reviewed_at,null)
  await db.query('update roadmap_generations set factual_validation_valid=false where id=$1',[id])
  await fails('owner',{expectedVersion:5,status:'reviewed'},422)
+ await db.query("update roadmap_generations set roadmap=jsonb_set(roadmap,'{career_id}','\"not-in-evidence\"'::jsonb) where id=$1",[id])
+ await assert.rejects(service.latest(auth,key),error=>error.statusCode===422,'A saved draft that fails verification must be identified as withheld, not reported as never generated')
  console.log('Roadmap lifecycle passed: role/school denial, atomic versions, review/approval/publication gates, private review notes, edit reset and invalid-evidence rejection. Fixture transaction rolled back; no AI call was made.')
 }finally{await db.query('rollback').catch(()=>{});await db.end()}

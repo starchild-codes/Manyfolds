@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { withAuthTimeout } from './authErrors'
 
 export type AiRoadmap = {
   roadmap_title: string
@@ -89,28 +90,44 @@ export type AiRoadmapGeneration = {
   cached: boolean
 }
 
+export class RoadmapRequestError extends Error {
+  readonly statusCode: number
+  constructor(message: string, statusCode: number) {
+    super(message)
+    this.name = 'RoadmapRequestError'
+    this.statusCode = statusCode
+  }
+}
+
 const request = async (path: string, init?: RequestInit) => {
   if (!supabase) throw new Error('Authentication is unavailable.')
   const {
     data: { session },
-  } = await supabase.auth.getSession()
+  } = await withAuthTimeout(supabase.auth.getSession())
   if (!session) throw new Error('Please sign in before generating a roadmap.')
   const response = await fetch(path, {
     ...init,
+    signal:init?.signal||AbortSignal.timeout(init?.method==='POST'?130_000:30_000),
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
       ...(init?.headers || {}),
     },
+  }).catch((error: unknown) => {
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      throw new Error('The roadmap request took too long. Reload to check for a saved draft before trying again.')
+    }
+    throw error
   })
   const payload = (await response.json().catch(() => ({}))) as {
     generation?: AiRoadmapGeneration | null
     error?: string
   }
   if (!response.ok) {
-    throw new Error(
+    throw new RoadmapRequestError(
       payload.error ||
         'We could not generate the roadmap right now. Your saved profile and recommendations are unchanged.',
+      response.status,
     )
   }
   return payload.generation || null

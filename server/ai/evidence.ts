@@ -50,6 +50,12 @@ export function summariseStudent(
   const skills = Object.entries(skillMap)
     .filter(([, value]) => value === 'enjoy' || value === 'good')
     .map(([name]) => name)
+  // The diagnostic's legacy `country` field stores the school-board selection.
+  // Stream names and international board names must not become geographic facts.
+  const boardSelection = text(profile.country)
+  const board = boardSelection === 'India' ? '' : boardSelection.replace(/^India\s*[\u00b7-]\s*/, '')
+  const geography = text(profile.geography)
+  const nearHome = profile.nearHome === true
   const missing: string[] = []
   if (!text(profile.grade)) missing.push('grade_level')
   if (!text(profile.stream)) missing.push('board_or_stream')
@@ -67,7 +73,8 @@ export function summariseStudent(
   return {
     student_id: studentExternalId,
     grade_level: text(profile.grade),
-    board: text(profile.stream),
+    board,
+    current_location: { state: text(profile.state), city: text(profile.city) },
     current_subjects: currentSubjects,
     subject_affinities: affinities,
     subject_avoidances: avoidances,
@@ -77,11 +84,10 @@ export function summariseStudent(
     values: strings(profile.values),
     budget_band: text(profile.budget),
     location_constraints: [
-      text(profile.country),
-      text(profile.state),
-      text(profile.city),
-      text(profile.geography),
-      profile.nearHome === true ? 'Near home required' : '',
+      geography,
+      geography === 'Same state' || nearHome ? text(profile.state) : '',
+      geography === 'Same city' || nearHome ? text(profile.city) : '',
+      nearHome ? 'Near home required' : '',
     ].filter(Boolean),
     relocation_preference: text(profile.relocate),
     exam_willingness: text(profile.examWillingness),

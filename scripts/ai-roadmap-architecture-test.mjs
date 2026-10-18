@@ -115,6 +115,12 @@ const valid = {
 }
 
 const compacted = compactEvidence(evidence, config)
+const boardSummary=summariseStudent('board-test',{country:'India \u00b7 CBSE',stream:'Humanities',subjects:{History:'love'},state:'Uttar Pradesh',geography:'Anywhere in India'})
+assert.equal(boardSummary.board,'CBSE','School board must not be replaced with the subject stream')
+assert.deepEqual(boardSummary.location_constraints,['Anywhere in India'],'The current state must not narrow a national study preference')
+assert.equal(boardSummary.current_location.state,'Uttar Pradesh')
+assert.ok(!summariseStudent('ib-test',{country:'IB',stream:'Humanities'}).location_constraints.includes('IB'),'An international school board is not a country')
+assert.equal(parseAndValidateRoadmap(valid,evidence,true).schemaValid,false,'Sparse generation must not invent stages, even if a provider ignores the response schema')
 await assert.rejects(
   () => callOpenRouter(config, config.primaryModel, evidence, 1700),
   /not configured/,
@@ -128,6 +134,17 @@ try {
     (error) => error instanceof OpenRouterError && error.retryable,
     'malformed provider JSON must be retryable',
   )
+  let boundedSignal
+  globalThis.fetch = async (_url, init) => {
+    boundedSignal = init.signal
+    return new Promise((_resolve, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason), {once:true}))
+  }
+  // Keep the test process alive while the AbortSignal's timer is unreferenced.
+  const keepAlive = setTimeout(() => {}, 1000)
+  try {
+    await assert.rejects(() => callOpenRouter({ ...config, apiKey: 'test-key' }, config.primaryModel, evidence, 1700, false, false, 10), error => error instanceof OpenRouterError && error.retryable)
+    assert.equal(boundedSignal.aborted, true, 'A model attempt must respect the remaining request time')
+  } finally { clearTimeout(keepAlive) }
 } finally {
   globalThis.fetch = originalFetch
 }
@@ -141,9 +158,25 @@ const oversized = structuredClone(evidence)
 oversized.student.current_subjects = Array.from({ length: 16 }, () => 'x'.repeat(2000))
 assert.throws(() => compactEvidence(oversized, config), TokenBudgetError)
 
+// Dropping admissions evidence must also drop the eligibility conclusion based on it.
+const bulkyAdmissions = structuredClone(evidence)
+bulkyAdmissions.verified_programmes = Array.from({length:8},(_,index)=>({programme_id:`p${index}`,name:'Programme '.repeat(150)}))
+bulkyAdmissions.deterministic_eligibility.status = 'conditionally_eligible'
+const reducedAdmissions = compactEvidence(bulkyAdmissions, config)
+assert.equal(reducedAdmissions.evidence.verified_programmes.length, 0)
+assert.equal(reducedAdmissions.evidence.deterministic_eligibility.status, 'insufficient_data')
+assert.match(reducedAdmissions.evidence.missing_data[0], /cannot be established/)
+assert.ok(reducedAdmissions.estimatedInputTokens <= config.maxInputTokens)
+
 const accepted = parseAndValidateRoadmap(valid, evidence)
 assert.equal(accepted.schemaValid, true)
 assert.equal(accepted.factualValid, true)
+
+const unsupportedEligibility = structuredClone(valid)
+unsupportedEligibility.eligibility_summary.status = 'conditionally_eligible'
+const inconsistentEvidence = structuredClone(evidence)
+inconsistentEvidence.deterministic_eligibility.status = 'conditionally_eligible'
+assert.equal(parseAndValidateRoadmap(unsupportedEligibility, inconsistentEvidence).factualValid, false, 'Eligibility cannot survive removal of all programme evidence, including in older snapshots')
 
 const invalidSchema = parseAndValidateRoadmap({ summary: 'not a roadmap' }, evidence)
 assert.equal(invalidSchema.schemaValid, false)
@@ -154,6 +187,15 @@ assert.equal(parseAndValidateRoadmap(unsupportedRequirement, evidence).factualVa
 const unsupportedShortRequirement = structuredClone(valid)
 unsupportedShortRequirement.summary = 'To enter this career, you need a degree in Commerce.'
 assert.equal(parseAndValidateRoadmap(unsupportedShortRequirement, evidence).factualValid, false, 'short unsourced degree requirements must fail')
+const unsupportedSuggestedRoute = structuredClone(valid)
+unsupportedSuggestedRoute.summary = 'Consider exploring undergraduate law degrees or related programmes in political science or legal studies that could lead to a career in law.'
+assert.equal(parseAndValidateRoadmap(unsupportedSuggestedRoute, evidence).factualValid, false, 'Tentative wording must not bypass relationship evidence')
+const unsupportedAdmissionAdvice = structuredClone(valid)
+unsupportedAdmissionAdvice.important_tradeoffs = ['You may need higher percentages to secure admission to competitive law programmes.']
+assert.equal(parseAndValidateRoadmap(unsupportedAdmissionAdvice, evidence).factualValid, false, 'Admission feasibility advice needs supplied evidence')
+const unsupportedExamPreparation = structuredClone(valid)
+unsupportedExamPreparation.next_actions[0].action = 'Prepare for entrance exams'
+assert.equal(parseAndValidateRoadmap(unsupportedExamPreparation, evidence).factualValid, false, 'Exam preparation instructions need a verified route')
 const unsupportedApplication = structuredClone(valid)
 unsupportedApplication.next_actions[0].action = 'Apply to institutions offering Commerce degrees.'
 assert.equal(parseAndValidateRoadmap(unsupportedApplication, evidence).factualValid, false, 'unverified institution routes must fail')

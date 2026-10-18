@@ -3,6 +3,7 @@ import {
   generateAiRoadmap,
   getLatestAiRoadmap,
   updateAiRoadmap,
+  RoadmapRequestError,
   type AiRoadmap,
   type AiRoadmapGeneration,
 } from './aiRoadmapApi'
@@ -108,6 +109,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
   const [loadingSaved, setLoadingSaved] = useState(true)
   const [generationState, setGenerationState] = useState<'idle' | 'loading' | 'error'>('idle')
   const [generationError, setGenerationError] = useState('')
+  const [savedDraftInvalid, setSavedDraftInvalid] = useState(false)
   const [errorSource, setErrorSource] = useState<'load' | 'generate' | null>(null)
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [notes, setNotes] = useState('')
@@ -118,12 +120,14 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
     void getLatestAiRoadmap(studentKey)
       .then((latest) => {
         setGeneration(latest)
+        setSavedDraftInvalid(false)
         setNotes(latest?.counsellorNotes||'')
         setGenerationState('idle')
         setGenerationError('')
         setErrorSource(null)
       })
       .catch((error) => {
+        setSavedDraftInvalid(error instanceof RoadmapRequestError && error.statusCode === 422)
         setGenerationState('error')
         setGenerationError(error instanceof Error ? error.message : 'Could not load the saved roadmap.')
         setErrorSource('load')
@@ -179,6 +183,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
       })
       if (!next) throw new Error('The roadmap service did not return a draft. Please try again.')
       setGeneration(next)
+      setSavedDraftInvalid(false)
       setNotes(next.counsellorNotes||'')
       setGenerationState('idle')
       setErrorSource(null)
@@ -272,7 +277,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
     URL.revokeObjectURL(anchor.href)
   }
 
-  const savedStatusUnavailable = errorSource === 'load' && Boolean(generationError)
+  const savedStatusUnavailable = errorSource === 'load' && Boolean(generationError) && !savedDraftInvalid
 
   return (
     <div className="content diagnostic roadmap">
@@ -284,12 +289,12 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
         </div>
       </div>
 
-      <section className={`roadmap-status-card ${generationState === 'loading' || loadingSaved ? 'is-loading' : savedStatusUnavailable ? 'has-error' : generation ? 'has-roadmap' : 'is-empty'}`} role="status" aria-live="polite">
+      <section className={`roadmap-status-card ${generationState === 'loading' || loadingSaved ? 'is-loading' : savedStatusUnavailable || savedDraftInvalid ? 'has-error' : generation ? 'has-roadmap' : 'is-empty'}`} role="status" aria-live="polite">
         <span className="roadmap-status-icon" aria-hidden="true">{generationState === 'loading' || loadingSaved ? '◷' : savedStatusUnavailable ? '!' : generation ? '✓' : '＋'}</span>
         <div className="roadmap-status-copy">
-          <p className="eyebrow">{loadingSaved ? 'Checking saved AI work' : generationState === 'loading' ? 'AI generation in progress' : savedStatusUnavailable ? 'AI roadmap status unavailable' : generation ? 'AI GENERATED · SAVED IN YOUR WORKSPACE' : 'AI ROADMAP · NOT GENERATED'}</p>
-          <h2>{loadingSaved ? 'Looking for an AI-generated roadmap' : generationState === 'loading' ? 'AI is generating your roadmap' : savedStatusUnavailable ? 'Could not confirm your AI roadmap' : generation ? 'Your AI-generated roadmap is ready' : 'Generate your first AI roadmap'}</h2>
-          <p>{loadingSaved ? 'This should only take a moment.' : generationState === 'loading' ? 'Manyfolds is organising your profile and the available verified records. You can keep this page open.' : savedStatusUnavailable ? 'Retry the workspace check to see whether a draft is already saved.' : generation ? `${generation.roadmap.roadmap_title} · Generated ${new Date(generation.generatedAt).toLocaleString()} · ${generation.status.replaceAll('_', ' ')}. Review the AI draft and its sources below.` : `Your diagnostic profile is ready. The rule-based checklist below is separate. Generate a saved AI draft for ${career?.name || 'your selected direction'}.`}</p>
+          <p className="eyebrow">{loadingSaved ? 'Checking saved AI work' : generationState === 'loading' ? 'AI generation in progress' : savedDraftInvalid ? 'SAVED AI DRAFT: VERIFICATION REQUIRED' : savedStatusUnavailable ? 'AI roadmap status unavailable' : generation ? 'AI GENERATED · SAVED IN YOUR WORKSPACE' : 'AI ROADMAP · NOT GENERATED'}</p>
+          <h2>{loadingSaved ? 'Looking for an AI-generated roadmap' : generationState === 'loading' ? 'AI is generating your roadmap' : savedDraftInvalid ? 'Your saved AI draft needs regeneration' : savedStatusUnavailable ? 'Could not confirm your AI roadmap' : generation ? 'Your AI-generated roadmap is ready' : 'Generate your first AI roadmap'}</h2>
+          <p>{loadingSaved ? 'This should only take a moment.' : generationState === 'loading' ? 'Manyfolds is organising your profile and the available verified records. You can keep this page open.' : savedDraftInvalid ? 'A previous draft is saved, but it no longer passes the verification checks and is withheld. Generate a new draft using current evidence.' : savedStatusUnavailable ? 'Retry the workspace check to see whether a draft is already saved.' : generation ? `${generation.roadmap.roadmap_title} · Generated ${new Date(generation.generatedAt).toLocaleString()} · ${generation.status.replaceAll('_', ' ')}. Review the AI draft and its sources below.` : `Your diagnostic profile is ready. The rule-based checklist below is separate. Generate a saved AI draft for ${career?.name || 'your selected direction'}.`}</p>
           {generation && generationState === 'loading' && <small>Your previous saved roadmap remains available below while the new draft is built.</small>}
           {generation && generationState !== 'loading' && <small>This draft uses a saved evidence snapshot. Regenerate to check the current verified catalogue.</small>}
         </div>
@@ -298,11 +303,11 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
         </div>
       </section>
       {loadingSaved && !generation && <div className="panel roadmap-loading"><LoadingSkeleton label="Loading saved roadmap" rows={2} /></div>}
-      {generationError && <div className="ai-roadmap-error" role="alert"><span>{errorSource === 'load' ? 'We could not check for your saved roadmap.' : 'We could not finish generating the roadmap.'} {generation ? 'Your existing saved roadmap is still available.' : 'Please try again.'}</span><button className="secondary" onClick={() => errorSource === 'load' ? setLoadAttempt((attempt) => attempt + 1) : void generate(false)}>Try again</button></div>}
+      {generationError && <div className="ai-roadmap-error" role="alert"><span>{savedDraftInvalid ? 'The saved AI draft is withheld.' : errorSource === 'load' ? 'We could not check for your saved roadmap.' : 'We could not finish generating the roadmap.'} {generationError} {generation && 'Your existing saved roadmap is still available.'}</span><button className="secondary" onClick={() => errorSource === 'load' && !savedDraftInvalid ? setLoadAttempt((attempt) => attempt + 1) : void generate(false)}>{savedDraftInvalid ? 'Generate a new draft' : 'Try again'}</button></div>}
 
       {generation && (
         <section id="ai-roadmap-draft" className="panel ai-roadmap-draft">
-          <div className="roadmap-ai-origin"><strong>AI-GENERATED ROADMAP</strong><span>Created {new Date(generation.generatedAt).toLocaleString()} · Based on your profile and the cited verified records · Counsellor review required</span></div>
+          <div className="roadmap-ai-origin"><strong>AI-GENERATED ROADMAP</strong><span>Created {new Date(generation.generatedAt).toLocaleString()} · {verifiedSources.length ? 'Based on your profile and the cited verified records' : 'Profile-based exploration guidance; no verified source records were included'} · Counsellor review required</span></div>
           <div className="ai-roadmap-meta">
             <div>
               <p className="eyebrow">Roadmap details <StatusBadge tone={generation.status === 'approved' || generation.status === 'published' ? 'success' : 'neutral'}>{generation.status.replaceAll('_', ' ')}</StatusBadge></p>
@@ -322,7 +327,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
           <div className="roadmap-verification-summary">
             <span><b>{verifiedSources.length}</b> verified sources</span>
             <span>
-              <b>{lastVerifiedTimestamp ? new Date(lastVerifiedTimestamp).toLocaleDateString() : 'Not recorded'}</b>
+              <b>{lastVerifiedTimestamp ? new Date(lastVerifiedTimestamp).toLocaleDateString() : 'No verification supplied'}</b>
               latest verification
             </span>
             <span><b>{generation.roadmap.eligibility_summary.status.replaceAll('_', ' ')}</b> programme eligibility</span>
@@ -354,6 +359,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
             </div>
             <div>
               <h3>Important trade-offs</h3>
+              {!generation.roadmap.important_tradeoffs.length && <p>No route-specific trade-offs are shown without verified pathway evidence.</p>}
               {generation.roadmap.important_tradeoffs.map((item) => (
                 <div className="ai-fact" key={item}><small>{item}</small></div>
               ))}
@@ -377,7 +383,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
                 </div>
               </article>
             ))}
-            {!verifiedStages.length && <p className="review">No source-verified roadmap stages are available in this saved draft. Regenerate with current data.</p>}
+            {!verifiedStages.length && <p className="review">No verified pathway stages are available. Use the exploration actions below and verify the route with a counsellor.</p>}
           </div>
 
           {verifiedCourseOptions.length > 0 && (
