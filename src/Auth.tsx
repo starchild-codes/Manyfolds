@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { supabase } from './supabaseClient'
 import './Auth.css'
 import { authRedirectError,authErrorMessage,withAuthTimeout } from './authErrors'
+import { completeAuthCallback } from './authCallback'
 
 const go = (path: string) => {
   if(path.startsWith('/invite/'))sessionStorage.removeItem('manyfolds-auth-return')
@@ -71,30 +72,30 @@ export function SignIn() {
     try {
       sessionStorage.setItem('manyfolds-auth-return',signInDestination())
       if (mode === 'reset') {
-        const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
+        const { error: authError } = await withAuthTimeout(supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth/callback`,
-        })
+        }))
         if (authError) throw authError
         setMessage('If an account exists, a secure password-reset email is on its way.')
         return
       }
 
       if (mode === 'signup') {
-        const { error: authError } = await supabase.auth.signUp({
+        const { error: authError } = await withAuthTimeout(supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-        })
+        }))
         if (authError) throw authError
         setMessage('Check your email to confirm your account, then return here to sign in.')
         return
       }
 
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      const { error: authError } = await withAuthTimeout(supabase.auth.signInWithPassword({ email, password }))
       if (authError) throw authError
       go(signInDestination())
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to continue.')
+      setError(authErrorMessage(reason))
     } finally {
       setBusy(false)
     }
@@ -199,9 +200,10 @@ export function SignIn() {
 }
 
 export function AuthCallback() {
-  const [state, setState] = useState<'working' | 'error'>('working')
+  const [state, setState] = useState<'working' | 'error' | 'recovery' | 'complete'>('working')
   const [message, setMessage] = useState('Completing your secure sign-in…')
   const exchangeStarted = useRef(false)
+  const [newPassword, setNewPassword] = useState(''), [confirmation, setConfirmation] = useState(''), [saving, setSaving] = useState(false), [passwordError, setPasswordError] = useState('')
 
   useEffect(() => {
     if (exchangeStarted.current) return
@@ -222,42 +224,44 @@ export function AuthCallback() {
         return
       }
 
-      const { data: sessionData,error:sessionError } = await withAuthTimeout(supabase.auth.getSession())
-      if(sessionError)throw sessionError
-      if (sessionData.session) {
-        go(signInDestination())
-        return
-      }
-
       const code = params.get('code')
-      if (!code) {
-        setState('error')
-        setMessage('The sign-in link is incomplete or expired. Please start again.')
-        return
-      }
-
-      const { data:exchangeData,error: exchangeError } = await withAuthTimeout(supabase.auth.exchangeCodeForSession(code))
-      if (exchangeError) {
-        setState('error')
-        setMessage(authErrorMessage(exchangeError))
-        return
-      }
-      if(!exchangeData.session)throw new Error('The sign-in service did not return a session. Please start again.')
-
+      const result = await completeAuthCallback(supabase.auth, code)
       window.history.replaceState({}, '', '/auth/callback')
+      if (result.recovery) { setState('recovery'); setMessage('Choose a new password for your Manyfolds account.'); return }
       go(signInDestination())
     }
 
     void complete().catch(reason=>{setState('error');setMessage(authErrorMessage(reason))})
   }, [])
 
+  const changePassword = async (event: FormEvent) => {
+    event.preventDefault()
+    if (saving || !supabase) return
+    setPasswordError('')
+    if (newPassword.length < 8 || newPassword !== confirmation) { setPasswordError('Use at least 8 characters and enter the same password twice.'); return }
+    setSaving(true)
+    try {
+      const { error } = await withAuthTimeout(supabase.auth.updateUser({ password: newPassword }))
+      if (error) throw error
+      setNewPassword(''); setConfirmation(''); setState('complete'); setMessage('Your password has been updated. You can continue to Manyfolds.')
+    } catch (error) { setPasswordError(authErrorMessage(error)) }
+    finally { setSaving(false) }
+  }
+
   return (
     <main className="auth-page auth-callback">
       <section className="auth-card">
         <p className="eyebrow">Manyfolds</p>
-        <h2>{state === 'working' ? 'Signing you in' : 'Sign-in could not be completed'}</h2>
+        <h2>{state === 'working' ? 'Signing you in' : state === 'recovery' ? 'Choose a new password' : state === 'complete' ? 'Password updated' : 'Sign-in could not be completed'}</h2>
         <p>{message}</p>
         {state === 'working' && <div className="auth-loader" />}
+        {state === 'recovery' && <form onSubmit={event => void changePassword(event)}>
+          <label>New password<input type="password" minLength={8} maxLength={128} required autoComplete="new-password" value={newPassword} onChange={event => setNewPassword(event.target.value)} disabled={saving} /></label>
+          <label>Confirm new password<input type="password" minLength={8} maxLength={128} required autoComplete="new-password" value={confirmation} onChange={event => setConfirmation(event.target.value)} disabled={saving} /></label>
+          <button className="email-button" disabled={saving}>{saving ? 'Updating password…' : 'Update password'}</button>
+          {passwordError && <p className="auth-error" role="alert">{passwordError}</p>}
+        </form>}
+        {state === 'complete' && <button className="email-button" onClick={() => go(signInDestination())}>Continue to Manyfolds</button>}
         {state === 'error' && <a className="email-button" href="/auth">Try again</a>}
       </section>
     </main>

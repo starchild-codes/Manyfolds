@@ -5,6 +5,7 @@ import {loadEnv} from 'vite'
 import {Client} from 'pg'
 import {RoadmapService} from '../server/ai/service.ts'
 import {createAiConfig} from '../server/ai/config.ts'
+import {roadmapSourceState} from '../server/ai/sourceState.ts'
 const env={...loadEnv('development',process.cwd(),''),...process.env},config=createAiConfig(env)
 const db=new Client({connectionString:config.databaseUrl,ssl:{rejectUnauthorized:false}})
 const {evidence,roadmap}=JSON.parse(await readFile(new URL('./fixtures/roadmap-review.json',import.meta.url),'utf8'))
@@ -16,6 +17,7 @@ try{
  const auth={userId:owner.user_id,organisationId:owner.organisation_id,role:'owner'},service=new RoadmapService(db,config),snapshot=randomUUID(),id=randomUUID(),key=randomUUID()
  await db.query('begin')
  await db.query('insert into roadmap_evidence_snapshots(id,organisation_id,student_external_id,evidence_hash,evidence,input_token_estimate) values($1,$2,$3,$4,$5,100)',[snapshot,auth.organisationId,key,key,evidence])
+ await db.query('update roadmap_evidence_snapshots set source_state_hash=$2 where id=$1',[snapshot,await roadmapSourceState(db,evidence)])
  await db.query("insert into roadmap_generations(id,organisation_id,student_external_id,counsellor_id,evidence_snapshot_id,generation_hash,prompt_version,engine_version,roadmap,model_generated_notice,schema_valid,factual_validation_valid) values($1,$2,$3,$4,$5,$3,'test','test',$6,'Synthetic test fixture',true,true)",[id,auth.organisationId,key,auth.userId,snapshot,roadmap])
  const fails=async(role,payload,status,organisationId=auth.organisationId)=>assert.rejects(service.update({...auth,role,organisationId},id,payload),error=>error.statusCode===status)
  await fails('teacher',{expectedVersion:1,status:'reviewed'},403)
@@ -24,6 +26,13 @@ try{
  await fails('owner',{status:'reviewed'},409)
  await fails('owner',{expectedVersion:1,status:'approved'},409)
  await fails('owner',{expectedVersion:1,status:'published'},409)
+ // A source change after generation blocks review, even when the saved JSON is
+ // still internally valid. No real catalogue fact is changed by this fixture.
+ const claimKey=`test-source-change:${key}`
+ await db.query(`insert into catalogue_claims(claim_key,entity_type,entity_id,field_name,claim_value,source_url,publisher,document_title,checked_at,reviewer,review_method,evidence_locator,verification_status)
+ values($1,'career','c1','test','"Synthetic changed fact"'::jsonb,'https://official.example/career','Test','Test',now(),'Test','source_audit','Test','stale')`,[claimKey])
+ await fails('owner',{expectedVersion:1,status:'reviewed'},422)
+ await db.query('delete from catalogue_claims where claim_key=$1',[claimKey])
  const reviewed=await service.update(auth,id,{expectedVersion:1,status:'reviewed',counsellorNotes:'Saved internal review'})
  assert.equal(reviewed.status,'reviewed');assert.equal(reviewed.version,2);assert.equal(reviewed.counsellorNotes,'Saved internal review')
  await fails('owner',{expectedVersion:1,status:'approved'},409)

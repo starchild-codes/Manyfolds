@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import {authRedirectError,authErrorMessage,withAuthTimeout} from '../src/authErrors.ts'
+import {completeAuthCallback} from '../src/authCallback.ts'
 
 const client = readFileSync('src/supabaseClient.ts', 'utf8')
-const auth = readFileSync('src/Auth.tsx', 'utf8')
+const auth = readFileSync('src/Auth.tsx', 'utf8') + readFileSync('src/authCallback.ts', 'utf8')
 
 const checks = [
   [client.includes("flowType: 'pkce'"), 'Supabase auth must use PKCE'],
@@ -32,4 +33,13 @@ assert.match(authErrorMessage({message:'invalid_client'}),/not configured correc
 assert.match(authErrorMessage(new TypeError('Failed to fetch')),/connection/)
 assert.equal(await withAuthTimeout(Promise.resolve('ready'),100),'ready')
 await assert.rejects(withAuthTimeout(new Promise(()=>{}),5),error=>error.code==='auth_timeout')
+let exchanged=0,sessionChecks=0
+let authEvent=()=>{},unsubscribed=0
+const callbackAuth={onAuthStateChange:callback=>{authEvent=callback;return {data:{subscription:{unsubscribe:()=>{unsubscribed++}}}}},getSession:async()=>{sessionChecks++;return {data:{session:{user:{id:'test'}}},error:null}},exchangeCodeForSession:async code=>{assert.equal(code,'recovery-code');exchanged++;authEvent('PASSWORD_RECOVERY');return {data:{session:{user:{id:'test'}}},error:null}}}
+assert.deepEqual(await completeAuthCallback(callbackAuth,'recovery-code'),{recovery:true})
+assert.equal(exchanged,1);assert.equal(sessionChecks,0,'An existing session must not bypass a recovery-code exchange')
+assert.equal(unsubscribed,1)
+assert.deepEqual(await completeAuthCallback(callbackAuth,null),{recovery:false})
+await assert.rejects(completeAuthCallback({...callbackAuth,exchangeCodeForSession:async()=>({data:{session:null},error:new Error('Expired recovery code')})},'expired'),/Expired recovery code/)
+await assert.rejects(completeAuthCallback({...callbackAuth,getSession:async()=>({data:{session:null},error:null})},null),/incomplete or expired/)
 console.log('Authentication checks passed: PKCE guard, query/fragment errors, expired flows, provider/network messages and bounded waiting')

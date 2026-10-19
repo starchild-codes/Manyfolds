@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "email:check": "node scripts/configure-auth-email.mjs",
+    "email:configure": "node scripts/configure-auth-email.mjs --apply",
+    "test:research": "node --experimental-strip-types scripts/official-research-test.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",

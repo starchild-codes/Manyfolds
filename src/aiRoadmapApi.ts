@@ -75,6 +75,7 @@ export type AiRoadmapSource = {
 }
 
 export type AiRoadmapGeneration = {
+  sourcesCurrent?: boolean
   id: string
   version:number
   counsellorNotes?:string

@@ -10,6 +10,7 @@ import {
 import { buildMatches, type Profile } from './recommendationEngine'
 import { EmptyState, LoadingSkeleton, StatusBadge } from './UiPrimitives'
 import { operationsRequest } from './operationsApi'
+import OfficialResearch from './OfficialResearch'
 
 type Step = {
   id: string
@@ -140,6 +141,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
       <div className="content diagnostic">
         <p className="eyebrow">Pathway planner</p>
         <div className="panel"><EmptyState title="Start with a diagnostic profile" description="Complete the Career Diagnostic first so the roadmap can reflect subjects, priorities, and practical constraints." action={<a className="new" href="/dashboard?view=diagnostic">Open Career Diagnostic</a>} /></div>
+        <OfficialResearch canEdit={canEdit} />
       </div>
     )
   }
@@ -323,15 +325,16 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
             </div>
           </div>
           <h2>{generation.roadmap.roadmap_title}</h2>
+          {generation.sourcesCurrent === false && <p className="guidance-error" role="status">The evidence behind this draft needs refreshing. Regenerate with current data before approving or publishing it.</p>}
           <p className="diagnostic-note">{generation.roadmap.summary}</p>
-          <div className="roadmap-verification-summary">
+          {verifiedSources.length > 0 && <div className="roadmap-verification-summary">
             <span><b>{verifiedSources.length}</b> verified sources</span>
             <span>
               <b>{lastVerifiedTimestamp ? new Date(lastVerifiedTimestamp).toLocaleDateString() : 'No verification supplied'}</b>
               latest verification
             </span>
             <span><b>{generation.roadmap.eligibility_summary.status.replaceAll('_', ' ')}</b> programme eligibility</span>
-          </div>
+          </div>}
           {generation.verifiedDates?.filter((item) => item.deadline >= new Date().toISOString().slice(0, 10)).map((item) => (
             <div className="roadmap-official-date" key={`${item.programmeName}-${item.deadline}`}>
               <div><b>Official application deadline · {item.cycle}</b><span>{item.programmeName}: {item.deadline}</span></div>
@@ -340,13 +343,13 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
           ))}
           <p className="ai-notice">{generation.notice}</p>
 
-          <div className={`eligibility-box ${generation.roadmap.eligibility_summary.status}`}>
+          {generation.roadmap.eligibility_summary.status !== 'insufficient_data' && <div className={`eligibility-box ${generation.roadmap.eligibility_summary.status}`}>
             <b>Eligibility: {generation.roadmap.eligibility_summary.status.replaceAll('_', ' ')}</b>
             <p>{generation.roadmap.eligibility_summary.explanation}</p>
             {generation.roadmap.eligibility_summary.missing_requirements.map((item) => (
               <small key={item}>Missing: {item}</small>
             ))}
-          </div>
+          </div>}
 
           <div className="ai-roadmap-grid">
             <div>
@@ -357,16 +360,15 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
                 </div>
               ))}
             </div>
-            <div>
+            {generation.roadmap.important_tradeoffs.length > 0 && <div>
               <h3>Important trade-offs</h3>
-              {!generation.roadmap.important_tradeoffs.length && <p>No route-specific trade-offs are shown without verified pathway evidence.</p>}
               {generation.roadmap.important_tradeoffs.map((item) => (
                 <div className="ai-fact" key={item}><small>{item}</small></div>
               ))}
-            </div>
+            </div>}
           </div>
 
-          <h3>Roadmap stages</h3>
+          {verifiedStages.length > 0 && <><h3>Roadmap stages</h3>
           <div className="ai-stage-list">
             {verifiedStages.map(({ item: stageItem, index }) => (
               <article key={`${stageItem.stage}-${index}`}>
@@ -383,8 +385,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
                 </div>
               </article>
             ))}
-            {!verifiedStages.length && <p className="review">No verified pathway stages are available. Use the exploration actions below and verify the route with a counsellor.</p>}
-          </div>
+          </div></>}
 
           {verifiedCourseOptions.length > 0 && (
             <>
@@ -430,11 +431,8 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
           </label>
 
           {canEdit&&<button className="secondary" disabled={reviewSaving||notes===(generation.counsellorNotes||'')} onClick={()=>void saveNotes()}>{reviewSaving?'Saving review...':'Save review notes'}</button>}
-          <div className="ai-sources">
+          {verifiedSources.length > 0 && <div className="ai-sources">
             <h3>Sources and verification</h3>
-            {!verifiedSources.length && (
-              <p className="review">No verified source records were supplied to this draft.</p>
-            )}
             {verifiedSources.map((source) => (
               <article key={source.record_id}>
                 <div>
@@ -454,21 +452,21 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
                 </div>
               </article>
             ))}
-          </div>
+          </div>}
 
-          {(generation.missingData.length > 0 || generation.validationWarnings.length > 0) && (
+          {(generation.missingData.length > 0 || generation.validationWarnings.length > 0 || !verifiedSources.length || generation.roadmap.eligibility_summary.status === 'insufficient_data') && (
             <div className="ai-missing-data">
-              <h3>Missing or unverified data</h3>
-              <p>{generation.roadmap.college_programmes.length
-                ? 'Some programme details remain unavailable or unverified. Check the sources and cycle shown above before making an application decision.'
-                : 'Programme-specific admission guidance is limited because a verified institution-course relationship is not yet available for this route.'}</p>
-              {[...generation.missingData, ...generation.validationWarnings].map((warning) => (
-                <p key={warning}>{warning}</p>
-              ))}
+              <h3>Before making an application decision</h3>
+              <p>Use official research below to check current admissions details. Only supported facts appear in this roadmap; personal eligibility still needs a counsellor’s review.</p>
+              <details><summary>Details to check with your counsellor</summary>
+               {[...new Set([...generation.missingData, ...generation.validationWarnings, ...generation.roadmap.eligibility_summary.missing_requirements])].map(warning => <p key={warning}>{warning}</p>)}
+              </details>
             </div>
           )}
         </section>
       )}
+
+      <OfficialResearch canEdit={canEdit} />
 
       <details className="roadmap-secondary" open={!generation && !loadingSaved && generationState !== 'loading' && !savedStatusUnavailable}>
         <summary>Explore other directions and the planning checklist <span>Rule-based guidance · separate from the saved AI roadmap</span></summary>

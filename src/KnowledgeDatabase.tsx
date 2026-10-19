@@ -48,18 +48,20 @@ export default function KnowledgeDatabase({ notify, initialType = 'Career', titl
   }, [type, term, page, reload])
 
   const choose = (next: RecordType) => { setType(next); setPage(1); setSelected(null) }
+  const showCategories = data.records.length > 0 && data.records.every(record => Boolean(record.field))
   return <div className="content knowledge-live">
-    <PageHeader eyebrow="Verified knowledge database" title={type === initialType ? title : `${type}s`} description={type === 'Career' ? 'Occupation titles are checked against the official classification. Career requirements appear only when separately verified.' : 'Only records with a verified status, source link and review date appear here. Missing categories stay empty until checked.'} action={<div className="live-count"><b>{state === 'ready' ? data.total.toLocaleString() : '—'}</b><small>{type === 'Career' ? 'verified occupation titles' : `verified ${type.toLowerCase()} records`}</small></div>} />
+    <PageHeader eyebrow="Verified knowledge database" title={type === initialType ? title : `${type}s`} description={type === 'Career' ? 'Occupation titles are checked against the official classification. Career requirements appear only when separately verified.' : 'Only records with a verified status, source link and review date appear here. Unsupported details are omitted.'} action={<div className="live-count"><b>{state === 'ready' ? data.total.toLocaleString() : '—'}</b><small>{type === 'Career' ? 'verified occupation titles' : `verified ${type.toLowerCase()} records`}</small></div>} />
+    <p className="diagnostic-note">Need current exam or admission details? <a href="/dashboard?view=roadmap">Check official sources with AI</a>.</p>
     <div className="kb-toolbar">
       <label className="search"><span aria-hidden="true">⌕</span><input aria-label={`Search ${type.toLowerCase()}s`} value={term} onChange={event => { setTerm(event.target.value); setPage(1); setSelected(null) }} placeholder={`Search ${type.toLowerCase()}s`} /></label>
       <div className="filters" aria-label="Knowledge categories">{categories.map(item => <button key={item} onClick={() => choose(item)} className={'filter ' + (type === item ? 'active' : '')} aria-pressed={type === item}>{item}s</button>)}</div>
     </div>
     <section className="panel kb-table">
       {state === 'loading' ? <div className="kb-loading"><LoadingSkeleton label={`Loading ${type.toLowerCase()} records`} rows={5} /></div> : state === 'error' ? <EmptyState title="Records could not load" description="The verified knowledge database is unavailable right now." action={<button className="secondary" onClick={() => setReload(value => value + 1)}>Retry search</button>} /> : data.records.length ? <table>
-        <thead><tr><th>Record</th><th>Field / category</th><th>Verification</th><th>Source</th></tr></thead>
+        <thead><tr><th>Record</th>{showCategories && <th>Field / category</th>}<th>Verification</th><th>Source</th></tr></thead>
         <tbody>{data.records.map(record => <tr key={record.id} onClick={() => setSelected(record)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelected(record) } }} tabIndex={0} aria-label={`Open ${record.name}`}>
           <td data-label="Record"><b>{record.name}</b>{record.summary && <small>{record.summary.slice(0, 115)}</small>}</td>
-          <td data-label="Field">{record.field || 'No verified category'}</td>
+          {showCategories && <td data-label="Field">{record.field}</td>}
           <td data-label="Verification"><StatusBadge tone="success">{record.verification_status === 'official_taxonomy_title' ? 'Verified title' : record.verification_status === 'verified_listing' ? 'Verified listing' : 'Verified'}</StatusBadge></td>
           <td data-label="Source"><a href={record.source_url} target="_blank" rel="noreferrer" onClick={event => event.stopPropagation()}>{record.source_name || 'Official source'}</a></td>
         </tr>)}</tbody>

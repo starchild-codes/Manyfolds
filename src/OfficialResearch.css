@@ -1,0 +1,11 @@
+.official-research { margin-block: 24px; }
+.official-research > p { max-width: 80ch; }
+.official-research-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin: 20px 0 14px; }
+.official-research-controls label { display: grid; gap: 7px; flex: 1 1 180px; font-size: 13px; font-weight: 600; }
+.official-research-controls select { width: 100%; min-width: 0; padding: 11px; border: 1px solid #d9ddd8; border-radius: 8px; background: white; color: #202b27; font: inherit; }
+.official-research-controls button { min-height: 42px; }
+.official-research-results { margin-top: 22px; border-top: 1px solid #d9ddd8; padding-top: 14px; }
+.official-research-results article { border-left: 3px solid #b6c9ad; padding: 1px 16px; margin-block: 18px; overflow-wrap: anywhere; }
+.official-research-results blockquote { margin: 0 0 12px; line-height: 1.65; white-space: pre-wrap; color: #44524a; }
+.ai-missing-data details { margin-top: 12px; }
+@media (max-width: 600px) { .official-research-controls { display: grid; } }

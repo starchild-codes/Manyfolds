@@ -61,7 +61,7 @@ Manyfolds is not 100% commercially ready while these requirements remain open.
 - [x] Roadmap review, approval and publication gates; atomic version conflicts; edits reset approval; private saved review notes.
 - [ ] Full pathway/action-plan workflow: approval/publish lifecycle, alternatives, richer task dependencies and final shareable outputs. Checklist progress now persists to the server.
 - [x] Authenticated live AI generation and draft/review/approval/publication transitions using a synthetic student. Approved model choices and token ceilings were preserved.
-- [ ] Recheck current source freshness at roadmap approval/publication, beyond validating the saved evidence snapshot.
+- [x] Recheck catalogue source state and claim expiry at roadmap review/approval/publication, beyond validating the saved snapshot. Changed or legacy sourced drafts require regeneration; this does not replace official-source monitoring.
 - [x] Expanded session records, active staff assignment, live pre-session briefing, completion outcome gate, author-private notes and separately approved guardian summaries. Session/parent summaries, action sheets and own internal case notes export as text documents.
 - [ ] Additional note visibility for separately authorized school leadership; printable document layouts; linked task/calendar creation from recorded session actions.
 - [x] Personal My Plan bookmarks persist across devices, with user/school isolation, idempotent saves, one preferred option and explicit import of older browser bookmarks. This is distinct from an approved student action plan.
@@ -110,3 +110,14 @@ School-board input is now mapped to board rather than stream, and current state/
 The final approved-provider service request saved a draft in 7.55 seconds after a primary-provider 429 and configured fallback. The deployed browser loaded the saved draft with explicit AI origin, no-source notice and insufficient-data eligibility. Session layout checks confirmed a static header, flex tabs and dialog bounds inside the viewport. API clients and the initial protected-workspace check now bound authentication waiting; remaining unbounded workspace/private/student/verification HTTP requests also have time limits. Session-check failures show an explicit retry state.
 
 The synthetic QA student was archived, its synthetic session cancelled and its personal bookmark removed. The two real student rows were compared before/after cleanup and remained unchanged. Archived diagnostic/session/AI history and provider usage were preserved. The interrupted old QA generation was marked failed. Screenshots and the verified guardian export are local ignored QA artifacts.
+
+
+## Official research, coverage and email workflows, 19 October
+
+Authenticated roadmap research now uses a live OpenRouter/Exa search of eight supported official exam/admission/scholarship publishers. Only official citation excerpts with the selected year appear; generated prose cannot publish facts. School-scoped cache, usage ledger, one-minute cooldown and hourly cap are protected by RLS. A live NID 2027 lookup returned two official sources. The research tests cover privacy/query restrictions, citation/year filtering, cache/rate limits, roles and school isolation. Repeated missing-data notices are consolidated; empty admissions stages and trade-off sections are omitted. Research is accessible without a completed diagnostic.
+
+Six reviewed NSP listings were added with names and application windows only. Final source recheck: 44 active claims, 10 verified scholarship listings, 25 staged candidates, 12 checked monitors. Nationwide route, fee, recognition and eligibility coverage remains incomplete. Source fingerprints now block review/approval/publication after catalogue changes or claim expiry; a regression test verifies changed evidence is rejected.
+
+Email activation tooling and branded confirmation/recovery templates are prepared. Password recovery previously had no new-password form; it now uses the SDK recovery event, exchanges a recovery code even with an existing session, validates confirmation and saves the new password. Callback tests cover active-session recovery and expired/missing codes. The user confirmed no domain/provider is purchased yet. SMTP, sender verification and inbox delivery remain blocked; Supabase also refuses template changes on the current default-sender/free setup. No mail was sent. See EMAIL_SETUP.md for activation.
+
+The previous browser connection is unavailable in this session, so these changes have automated/build/live-service checks, not a new browser QA pass. Other unchecked launch workflows above remain open.

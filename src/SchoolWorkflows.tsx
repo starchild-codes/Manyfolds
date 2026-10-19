@@ -7,6 +7,7 @@ import type { StudentRecord } from './studentRegistryApi'
 import { schoolRequest, getDiagnostics, type DiagnosticSnapshot, type Intervention } from './schoolApi'
 import Diagnostic from './Diagnostic'
 import Roadmap from './Roadmap'
+import OfficialResearch from './OfficialResearch'
 import type { Profile } from './recommendationEngine'
 import './GuidanceActivities.css'
 import './SchoolWorkflows.css'
@@ -47,7 +48,7 @@ export function StudentDiagnostics({students,canEdit,notify}:{students:StudentRe
 export function StudentRoadmaps({students,notify,canEdit}:{students:StudentRecord[];notify:(text:string)=>void;canEdit:boolean}){
  const [student,setStudent]=useState(()=>new URLSearchParams(window.location.search).get('student')||''),[snapshot,setSnapshot]=useState<DiagnosticSnapshot|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState('')
  useEffect(()=>{if(!student)return;let active=true;setLoading(true);setSnapshot(null);setError('');void getDiagnostics(student).then(records=>{if(active)setSnapshot(records[0]||null)}).catch(e=>{if(active)setError(message(e))}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[student])
- return <><div className="content school-student-selector"><label>Student<select value={student} onChange={e=>setStudent(e.target.value)}><option value="">Choose a student</option>{students.map(s=><option key={s.id} value={s.id}>{s.name} · {s.grade}</option>)}</select></label><ErrorNotice error={error}/></div>{!student?<div className="content"><h1>Student roadmaps</h1><p>Choose a student to open their AI roadmap or generate one from their saved diagnostic.</p></div>:loading?<div className="content">Loading saved profile…</div>:!error&&<Roadmap key={`${student}-${snapshot?.id||'none'}`} studentKey={student} canEdit={canEdit} profile={snapshot?.status!=='draft'?snapshot?.profile||null:null} notify={notify}/>}</>
+ return <><div className="content school-student-selector"><label>Student<select value={student} onChange={e=>setStudent(e.target.value)}><option value="">Choose a student</option>{students.map(s=><option key={s.id} value={s.id}>{s.name} · {s.grade}</option>)}</select></label><ErrorNotice error={error}/></div>{!student?<div className="content"><h1>Student roadmaps</h1><p>Choose a student to open their AI roadmap or generate one from their saved diagnostic.</p><OfficialResearch canEdit={canEdit}/></div>:loading?<div className="content">Loading saved profile…</div>:!error&&<Roadmap key={`${student}-${snapshot?.id||'none'}`} studentKey={student} canEdit={canEdit} profile={snapshot?.status!=='draft'?snapshot?.profile||null:null} notify={notify}/>}</>
 }
 
 export function Interventions({students,canEdit}:{students:StudentRecord[];canEdit:boolean}){

@@ -28,6 +28,7 @@ jobs:
           npm run data:sources:check:apply
           npm run data:scholarships:stage:apply
           node scripts/reverify-official-pilot.mjs --apply
+          node scripts/publish-reviewed-nsp-listings.mjs --apply
           npm run data:verified:coverage
       - name: Explain missing database connection
         if: env.DATABASE_URL == ''

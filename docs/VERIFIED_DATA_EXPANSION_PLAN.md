@@ -60,3 +60,10 @@ The database becomes comprehensive through repeatable source coverage and re-ver
 ## Source recheck, 9 October 2026
 
 Changed-page monitoring withheld eighteen pilot claims. Current official NLSIU and NID pages, the NID handbook and exact NSP cards were checked again. Seventeen claims were reverified with `scripts/reverify-official-pilot.mjs --apply`; NID DAT identity now cites the handbook cover and section 2.1 through `20261009_nid_exam_source_review.sql`. Existing facts and rules were preserved. No fee, award amount, seat or personal eligibility was inferred. Coverage is again 37 active claims, four verified listings and 31 pending candidates. The script is confined to existing pilot facts, refuses changed windows/source assertions and does not bulk-publish candidates. National expansion remains incomplete.
+
+
+## Expansion and research, 19 October 2026
+
+Six more current NSP cards were audited and published for scheme identity and general application window only: Pragati, Saksham and Swanath technical diploma listings, plus pre-matric, post-matric and top-class disability listings. A strict reviewed manifest pins exact names/card hashes and refuses changed or expired data. Existing pilot claims were rechecked. Current coverage: 44 active claims, 10 verified scholarship listings, 25 pending candidates and 12 checked monitors. National eligibility/benefit/fee/recognition and complete-route coverage remains incomplete.
+
+An on-demand AI research panel now retrieves official current-cycle source excerpts for missing exam/admissions information. Research does not promote claims or silently alter saved roadmaps. See OFFICIAL_AI_RESEARCH.md.

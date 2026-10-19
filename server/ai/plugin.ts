@@ -6,6 +6,7 @@ import { createAiConfig } from './config.ts'
 import { RoadmapService, RoadmapServiceError } from './service.ts'
 import type { GenerationRequest } from './types.ts'
 import { VerificationAdminService } from './verificationAdmin.ts'
+import { OfficialResearchService, ResearchError } from './research.ts'
 
 const json = (res: ServerResponse, status: number, body: unknown) => {
   res.statusCode = status
@@ -31,6 +32,7 @@ export function aiRoadmapApi(env: Record<string, string | undefined>): Plugin {
   const config = createAiConfig(env)
   const pool = getDatabasePool(config.databaseUrl)
   const service = new RoadmapService(pool, config)
+  const research = new OfficialResearchService(pool, config)
   const curatorIds = new Set((env.MANYFOLDS_CATALOGUE_CURATOR_IDS || '').split(',').map(id => id.trim()).filter(Boolean))
   const verificationAdmin = new VerificationAdminService(pool, curatorIds)
 
@@ -49,6 +51,14 @@ export function aiRoadmapApi(env: Record<string, string | undefined>): Plugin {
         }
         try {
           const auth = await authenticateRoadmapRequest(req, pool, config)
+          if (url.pathname === '/api/ai-roadmaps/research' && req.method === 'GET') {
+            json(res, 200, await research.list(auth))
+            return
+          }
+          if (url.pathname === '/api/ai-roadmaps/research' && req.method === 'POST') {
+            json(res, 200, { result: await research.search(auth, await readJson(req)) })
+            return
+          }
           if (req.method === 'GET' && url.pathname === '/api/verification') {
             json(res, 200, await verificationAdmin.list(auth))
             return
@@ -140,7 +150,7 @@ export function aiRoadmapApi(env: Record<string, string | undefined>): Plugin {
           json(res, 404, { error: 'Roadmap endpoint not found.' })
         } catch (error) {
           const known =
-            error instanceof AuthenticationError || error instanceof RoadmapServiceError
+            error instanceof AuthenticationError || error instanceof RoadmapServiceError || error instanceof ResearchError
           json(res, known ? error.statusCode : 500, {
             error: known
               ? error.message

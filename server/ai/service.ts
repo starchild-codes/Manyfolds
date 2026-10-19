@@ -8,6 +8,7 @@ import { rankAllowedModels, recordModelHealth } from './models.ts'
 import { ROADMAP_PROMPT_VERSION } from './prompt.ts'
 import { compactEvidence, remainingOutputBudget, TokenBudgetError } from './tokens.ts'
 import { parseAndValidateRoadmap } from './validation.ts'
+import { roadmapSourceState } from './sourceState.ts'
 import type {
   AuthContext,
   CompactSourceRecord,
@@ -57,15 +58,16 @@ export class RoadmapService {
     evidence: RoadmapEvidencePackage,
     evidenceHash: string,
     tokenEstimate: number,
+    sourceStateHash: string,
   ) {
     const result = await this.pool.query(
       `insert into roadmap_evidence_snapshots
-       (organisation_id,student_external_id,evidence_hash,evidence,input_token_estimate)
-       values($1,$2,$3,$4,$5)
+       (organisation_id,student_external_id,evidence_hash,evidence,input_token_estimate,source_state_hash)
+       values($1,$2,$3,$4,$5,$6)
        on conflict(organisation_id,student_external_id,evidence_hash)
        do update set input_token_estimate=excluded.input_token_estimate
        returning id`,
-      [auth.organisationId, studentExternalId, evidenceHash, evidence, tokenEstimate],
+      [auth.organisationId, studentExternalId, evidenceHash, evidence, tokenEstimate, sourceStateHash],
     )
     return result.rows[0].id as string
   }
@@ -87,16 +89,18 @@ export class RoadmapService {
     auth: AuthContext,
   ) {
     const evidenceResult = await this.pool.query(
-      `select evidence from roadmap_evidence_snapshots where id=$1`,
+      `select evidence,source_state_hash from roadmap_evidence_snapshots where id=$1`,
       [row.evidence_snapshot_id],
     )
     const evidence = evidenceResult.rows[0]?.evidence as RoadmapEvidencePackage | undefined
+    const sourcesCurrent = evidence ? evidenceResult.rows[0]?.source_state_hash === await roadmapSourceState(this.pool, evidence) || !evidence.source_records.some(source => source.verification_status === 'verified') : false
     if (evidence) {
       const validation = parseAndValidateRoadmap(row.roadmap, evidence)
       if (!validation.schemaValid || !validation.factualValid) return null
     }
     return {
       id: row.id,
+      sourcesCurrent,
       version: row.version,
       counsellorNotes: ['owner','admin','counsellor'].includes(auth.role)?row.counsellor_notes:undefined,
       roadmap: row.roadmap,
@@ -148,7 +152,8 @@ export class RoadmapService {
       const evidence = await buildEvidencePackage(this.pool, auth, request)
       const compacted = compactEvidence(evidence, this.config)
       const studentExternalId = compacted.evidence.student.student_id
-      const evidenceHash = hash(compacted.evidence)
+      const sourceStateHash = await roadmapSourceState(this.pool, compacted.evidence)
+      const evidenceHash = hash({ evidence: compacted.evidence, sourceStateHash })
       const generationHash = hash({
         evidenceHash,
         prompt: ROADMAP_PROMPT_VERSION,
@@ -161,6 +166,7 @@ export class RoadmapService {
         compacted.evidence,
         evidenceHash,
         compacted.estimatedInputTokens,
+        sourceStateHash,
       )
 
       if (!request.force) {
@@ -175,7 +181,7 @@ export class RoadmapService {
         )
         if (cached.rowCount) {
           const cachedGeneration = await this.safeGenerationResponse(cached.rows[0], true,auth)
-          if (cachedGeneration) return cachedGeneration
+          if (cachedGeneration?.sourcesCurrent) return cachedGeneration
         }
       }
 
@@ -514,7 +520,7 @@ export class RoadmapService {
     if(!['owner','admin','counsellor'].includes(auth.role))throw new RoadmapServiceError('Your role cannot review roadmaps.',403)
     if(!Number.isSafeInteger(payload.expectedVersion)||Number(payload.expectedVersion)<1)throw new RoadmapServiceError('Reload the roadmap to obtain its current version.',409)
     const existing = await this.pool.query(
-      `select g.*,e.evidence
+      `select g.*,e.evidence,e.source_state_hash
        from roadmap_generations g join roadmap_evidence_snapshots e on e.id=g.evidence_snapshot_id
        where g.id=$1 and g.organisation_id=$2
          and not exists(select 1 from student_registry_records s where s.organisation_id=g.organisation_id
@@ -546,6 +552,11 @@ export class RoadmapService {
     if(['reviewed','approved','published'].includes(nextStatus)){
       const validation=parseAndValidateRoadmap(roadmap,row.evidence as RoadmapEvidencePackage)
       if(!validation.schemaValid||!validation.factualValid||!row.schema_valid||!row.factual_validation_valid)throw new RoadmapServiceError('This roadmap must pass evidence validation before review or publication.',422)
+      const evidence = row.evidence as RoadmapEvidencePackage
+      if (evidence.source_records.some(source => source.verification_status === 'verified') &&
+          (!row.source_state_hash || row.source_state_hash !== await roadmapSourceState(this.pool, evidence))) {
+        throw new RoadmapServiceError('Official evidence has changed or expired since this draft was generated. Regenerate and review it before approval or publication.', 422)
+      }
     }
     const updated = await this.pool.query(
       `update roadmap_generations set roadmap=$3,status=$4,counsellor_notes=$5,
