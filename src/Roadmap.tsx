@@ -309,7 +309,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
 
       {generation && (
         <section id="ai-roadmap-draft" className="panel ai-roadmap-draft">
-          <div className="roadmap-ai-origin"><strong>AI-GENERATED ROADMAP</strong><span>Created {new Date(generation.generatedAt).toLocaleString()} · {verifiedSources.length ? 'Based on your profile and the cited verified records' : 'Profile-based exploration guidance; no verified source records were included'} · Counsellor review required</span></div>
+          <div className="roadmap-ai-origin"><strong>AI-GENERATED ROADMAP</strong><span>Created {new Date(generation.generatedAt).toLocaleString()} · {verifiedSources.length ? 'Based on your profile and the cited official records' : 'Profile-based exploration guidance'} · Counsellor review required</span></div>
           <div className="ai-roadmap-meta">
             <div>
               <p className="eyebrow">Roadmap details <StatusBadge tone={generation.status === 'approved' || generation.status === 'published' ? 'success' : 'neutral'}>{generation.status.replaceAll('_', ' ')}</StatusBadge></p>
@@ -341,7 +341,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
               {item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer">Check official notice ↗</a>}
             </div>
           ))}
-          <p className="ai-notice">{generation.notice}</p>
+          {verifiedSources.length > 0 && <p className="ai-notice">{generation.notice}</p>}
 
           {generation.roadmap.eligibility_summary.status !== 'insufficient_data' && <div className={`eligibility-box ${generation.roadmap.eligibility_summary.status}`}>
             <b>Eligibility: {generation.roadmap.eligibility_summary.status.replaceAll('_', ' ')}</b>
@@ -457,7 +457,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
           {(generation.missingData.length > 0 || generation.validationWarnings.length > 0 || !verifiedSources.length || generation.roadmap.eligibility_summary.status === 'insufficient_data') && (
             <div className="ai-missing-data">
               <h3>Before making an application decision</h3>
-              <p>Use official research below to check current admissions details. Only supported facts appear in this roadmap; personal eligibility still needs a counsellor’s review.</p>
+              <p>{!verifiedSources.length ? 'This draft provides profile-based exploration. Check current admissions details with official research below.' : 'Use official research below to check current admissions details.'} Personal eligibility still needs a counsellor’s review.</p>
               <details><summary>Details to check with your counsellor</summary>
                {[...new Set([...generation.missingData, ...generation.validationWarnings, ...generation.roadmap.eligibility_summary.missing_requirements])].map(warning => <p key={warning}>{warning}</p>)}
               </details>

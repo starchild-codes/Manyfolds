@@ -1,5 +1,13 @@
 .official-research { margin-block: 24px; }
 .official-research > p { max-width: 80ch; }
+.official-research-question { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; margin-block: 20px; }
+.official-research-question label { display: grid; gap: 7px; flex: 1 1 240px; font-size: 13px; font-weight: 600; }
+.official-research-question input { width: 100%; min-width: 0; padding: 12px; border: 1px solid #d9ddd8; border-radius: 8px; background: white; color: #202b27; font: inherit; }
+.official-research-question button { min-height: 44px; }
+.official-research details { margin-block: 14px; }
+.official-research summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+.official-research-answer { margin-block: 20px; }
+.official-research-answer p { font-size: 16px; line-height: 1.6; margin-block: 12px; }
 .official-research-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin: 20px 0 14px; }
 .official-research-controls label { display: grid; gap: 7px; flex: 1 1 180px; font-size: 13px; font-weight: 600; }
 .official-research-controls select { width: 100%; min-width: 0; padding: 11px; border: 1px solid #d9ddd8; border-radius: 8px; background: white; color: #202b27; font: inherit; }
