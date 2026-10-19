@@ -1,4 +1,4 @@
-.official-research { margin-block: 24px; }
+.official-research { margin-block: 24px; padding: 24px; }
 .official-research > p { max-width: 80ch; }
 .official-research-question { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; margin-block: 20px; }
 .official-research-question label { display: grid; gap: 7px; flex: 1 1 240px; font-size: 13px; font-weight: 600; }
@@ -16,4 +16,4 @@
 .official-research-results article { border-left: 3px solid #b6c9ad; padding: 1px 16px; margin-block: 18px; overflow-wrap: anywhere; }
 .official-research-results blockquote { margin: 0 0 12px; line-height: 1.65; white-space: pre-wrap; color: #44524a; }
 .ai-missing-data details { margin-top: 12px; }
-@media (max-width: 600px) { .official-research-controls { display: grid; } }
+@media (max-width: 600px) { .official-research-controls { display: grid; } .official-research { padding: 18px; } }
