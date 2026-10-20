@@ -1,3 +1,4 @@
+import {AccessError,assertStudentAccess,canGuide,canCounsel} from '../access.ts'
 import { createHash } from 'node:crypto'
 import type { Pool } from 'pg'
 import type { AiConfig } from './config.ts'
@@ -34,6 +35,7 @@ const hash = (value: unknown) =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex')
 
 const safeError = (error: unknown) => {
+  if (error instanceof AccessError) return new RoadmapServiceError(error.message,error.statusCode)
   if (error instanceof RoadmapServiceError) return error
   if (error instanceof TokenBudgetError) return new RoadmapServiceError(error.message, 413)
   if (error instanceof MissingEvidenceError) return new RoadmapServiceError(error.message, 422)
@@ -111,7 +113,7 @@ export class RoadmapService {
       sourcesCurrent,
       profileCurrent,
       version: row.version,
-      counsellorNotes: ['owner','admin','counsellor'].includes(auth.role)?row.counsellor_notes:undefined,
+      counsellorNotes: canCounsel(auth.role)?row.counsellor_notes:undefined,
       roadmap: row.roadmap,
       status: row.status,
       generatedAt: row.generated_at,
@@ -137,6 +139,8 @@ export class RoadmapService {
   }
 
   async latest(auth: AuthContext, studentExternalId = `diagnostic-${auth.userId}`) {
+    if(!canGuide(auth.role))throw new RoadmapServiceError('Your role cannot open diagnostic roadmaps.',403)
+    if(studentExternalId!==`diagnostic-${auth.userId}`)await assertStudentAccess(this.pool,auth,studentExternalId)
     const result = await this.pool.query(
       `select id,version,counsellor_notes,roadmap,status,generated_at,updated_at,model_generated_notice,
               validation_errors,evidence_snapshot_id
@@ -154,6 +158,8 @@ export class RoadmapService {
   async generate(auth: AuthContext, request: GenerationRequest) {
     const deadline = Date.now() + 100_000
     try {
+      if(!canGuide(auth.role))throw new RoadmapServiceError('Your role cannot generate roadmaps.',403)
+      if(request.studentExternalId)await assertStudentAccess(this.pool,auth,request.studentExternalId)
       if (!request.profile || !request.primaryCareer?.name) {
         throw new RoadmapServiceError('A completed profile and selected career are required.')
       }
@@ -529,7 +535,7 @@ export class RoadmapService {
   }
 
   async exportApproved(auth: AuthContext, generationId: string, expectedVersion: unknown) {
-    if(!['owner','admin','counsellor'].includes(auth.role))throw new RoadmapServiceError('Only counselling staff can export an approved roadmap.',403)
+    if(!canGuide(auth.role))throw new RoadmapServiceError('Only counselling staff can export an approved roadmap.',403)
     if(!Number.isSafeInteger(expectedVersion))throw new RoadmapServiceError('Reload the roadmap before exporting.',409)
     const result=await this.pool.query(`select g.*,s.payload->>'name' student_name,o.name school_name,
       coalesce(nullif(u.raw_user_meta_data->>'display_name',''),nullif(u.raw_user_meta_data->>'full_name',''),'School staff') author
@@ -538,6 +544,7 @@ export class RoadmapService {
       where g.id=$1 and g.organisation_id=$2`,[generationId,auth.organisationId,auth.userId])
     const row=result.rows[0]
     if(!row)throw new RoadmapServiceError('Roadmap not found for an active student in your school.',404)
+    await assertStudentAccess(this.pool,auth,row.student_external_id)
     if(row.version!==expectedVersion)throw new RoadmapServiceError('This roadmap changed. Reload before exporting.',409)
     if(!['approved','published'].includes(row.status))throw new RoadmapServiceError('Review and approve this roadmap before creating a shareable document.',409)
     const generation=await this.safeGenerationResponse(row,false,auth)
@@ -552,7 +559,8 @@ export class RoadmapService {
     generationId: string,
     payload: { status?: string; counsellorNotes?: string; roadmap?: unknown; expectedVersion?:number },
   ) {
-    if(!['owner','admin','counsellor'].includes(auth.role))throw new RoadmapServiceError('Your role cannot review roadmaps.',403)
+    if(!canGuide(auth.role))throw new RoadmapServiceError('Your role cannot review roadmaps.',403)
+    if(!canCounsel(auth.role)&&(payload.counsellorNotes!==undefined||['reviewed','approved','published'].includes(payload.status||'')))throw new RoadmapServiceError('A counsellor must review and approve this draft.',403)
     if(!Number.isSafeInteger(payload.expectedVersion)||Number(payload.expectedVersion)<1)throw new RoadmapServiceError('Reload the roadmap to obtain its current version.',409)
     const existing = await this.pool.query(
       `select g.*,e.evidence,e.source_state_hash,e.diagnostic_profile_hash
@@ -564,6 +572,7 @@ export class RoadmapService {
     )
     if (!existing.rowCount) throw new RoadmapServiceError('Roadmap not found.', 404)
     const row = existing.rows[0]
+    if(row&&row.student_external_id!==`diagnostic-${auth.userId}`)await assertStudentAccess(this.pool,auth,row.student_external_id)
     if(row.version!==payload.expectedVersion)throw new RoadmapServiceError('This roadmap changed elsewhere. Reload before saving again.',409)
     let roadmap = row.roadmap as RoadmapOutput
     let validationErrors = Array.isArray(row.validation_errors)

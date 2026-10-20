@@ -66,7 +66,7 @@ try{
  await db.query('update student_registry_records set archived_at=now() where organisation_id=$1 and external_key=$2',[auth.organisationId,key])
  await assert.rejects(service.exportApproved(auth,id,4),error=>error.statusCode===404)
  await db.query('update student_registry_records set archived_at=null where organisation_id=$1 and external_key=$2',[auth.organisationId,key])
- assert.equal((await service.latest({...auth,role:'teacher'},key)).counsellorNotes,undefined)
+ await assert.rejects(service.latest({...auth,role:'teacher'},key),error=>error.statusCode===403,'Class teachers cannot open diagnostic roadmaps or internal review notes')
  await fails('owner',{expectedVersion:4,status:'published',roadmap},409)
  const changed=await service.update(auth,id,{expectedVersion:4,status:'draft',roadmap:{...roadmap,roadmap_title:'Revised counsellor draft'}})
  assert.equal(changed.status,'draft');assert.equal(changed.version,5)

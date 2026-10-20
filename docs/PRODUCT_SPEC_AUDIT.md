@@ -1,6 +1,6 @@
 # Manyfolds product specification audit
 
-Checked against `Product_info.md` on 19 October 2026. This is a feature-group audit, not a claim that every individual requirement is complete. Passing regression tests does not establish implementation of missing features.
+Updated on 20 October 2026 against `Product_info.md`. This is a feature-group audit, not a claim that every individual requirement is complete. Passing regression tests does not establish implementation of missing features.
 
 ## Counsellor journey changes
 
@@ -19,26 +19,26 @@ Career suitability percentages were removed from the diagnostic report to follow
 | Specification | Present and exercised | Remaining gap |
 | --- | --- | --- |
 | 1–3: purpose and principles | School workspaces, staff-mediated diagnostics, profile context, source gates, private notes, no student/guardian accounts | Complete longitudinal outcomes and all non-AI pathways are still needed |
-| 4: roles | Owner/admin/counsellor/teacher enforcement, invitations and immediate revocation; global catalogue curator restriction | Separate lead counsellor, guidance teacher, data operator/reviewer roles; full assigned-caseload scope and platform school-administration UI |
+| 4: roles | Lead counsellor, guidance teacher, class teacher, data-entry and reviewer roles; assigned/temporary caseloads; primary assignment controls; limited-role screens; API-only registry writes; scoped RLS; explicitly allowlisted platform school provisioning/suspension | Final browser checks of the new role screens; platform operator identities must be configured explicitly |
 | 5: mediated sharing | Student summary, approved guardian summary, session/action/internal exports; approved AI roadmap printable document | Dedicated pathway comparison, consent, deadline and outcome documents |
 | 6–7: public website | Home, explanation of guidance and staff login | Dedicated school/staff/impact/resources/privacy/contact pages and an agreed public demo/support destination |
 | 8.1: Today | Real registry/class counts, priority queue and links | Full deadline/reminder/readiness cards and live coverage charts |
 | 8.2: registry | Create/update, class/staff fields, filtering, CSV import mapping, duplicate IDs, archive/restore, history and CAS conflicts | Full specified demographics/filter matrix, richer bulk assignment/action workflows |
 | 8.3 A–H/K: student profile | Academics and CSV preview, interests, skills/evidence, constraints, family summaries, exploration, documents and session records | Unified timeline/profile navigation across all modules and all specified overview fields |
-| 8.3 I–J/L: pathways/action plans/audit | AI draft lifecycle, persistent planning checklist, record audit history | Multiple primary/alternative/exploratory plans, full goals/milestones/dependencies/review-date model, integrated per-student audit view |
-| 8.4: sessions | Sixteen session types, briefing, structured notes, author-private notes, separately approved shareable summary, outcome completion gate, exports | Authorized leadership note category, direct conversion of recorded actions into tasks, all printable formats |
+| 8.3 I-J/L: pathways/action plans/audit | Primary/alternative/exploratory pathways, dated goals, staff owners, milestones, dependencies, task links, review dates, version history, evidence-checked outcomes and integrated guidance timeline | Full detailed audit navigation and dedicated comparison/consent/deadline documents |
+| 8.4: sessions | Sixteen session types, briefing, structured records, author-private notes, separate approved sharing, completion gate, exports and deduplicated conversion of saved actions to tasks | Leadership-restricted note category and all dedicated print formats |
 | 8.5: pipeline | Current registry stages grouped into a pipeline and linked student records | Full configurable fourteen-stage model, validated drag-and-drop, bulk transition reasons and suggested transitions |
-| 8.6: tasks | Persisted student-linked follow-ups, dates, status, completion and staff filters | Responsibility/category/priority/dependency/evidence/comments, reassignment and automation |
-| 8.7: calendar | Persisted sessions/follow-ups ordered by time | Day/week/month grid, interventions and official deadlines, staff availability, conflict checks, recurrence and export |
-| 8.8: interventions | Title/date, student membership, status and saved summaries | Attendance, objectives/types, resources, pre/post measures, feedback, costs and linked follow-up tasks |
+| 8.6: tasks | Responsibility/category/priority, assigned staff, active/blocked/evidence states, dependencies/cycle checks, evidence documents, comments, completion, due/overdue views and session-action conversion | Complete configurable task-automation rules and reminder coverage |
+| 8.7: calendar | Day/week/month views; sessions/tasks/interventions; current verified official dates; staff/type filters; availability; concurrent conflict checks; recurring school events/availability; cancellation; scoped ICS export | Broader official-date coverage and final responsive/browser validation |
+| 8.8: interventions | Types/objectives/cohort selection, organiser, venue, duration, resources, attendance, pre/post responses, feedback, reflections, cost/partner notes and linked follow-ups; attendance required before completion; printable attendance sheet | Final browser validation and broader curated workshop materials |
 | 8.9–13: verified catalogue | Claim-level provenance, expiry/stale withholding, official source links, programme pilot and scholarships; on-demand official-source AI research | Complete field-level guidance for representative academic and vocational routes, fees/recognition/benefits, comparison and student-pathway links |
 | 8.14: resources | Eleven counsellor playbooks and persisted school resources | All resource types/structured worksheets and broader curated launch materials |
-| 8.15: reports | Real activity counts, date filters and CSV exports | Readiness, caseload, cohort, equity and annual printable reporting |
-| 8.16: outcomes | Session outcomes and exploration outcomes recorded as narrative | Dedicated verified outcome records, provider/programme/source/confidence and longitudinal reports |
-| 8.17: school administration | Setup, classes/sections, staff invitations/roles, individual assignment, safe academic-year rollover/rollback | Retention settings, complete academic structures, class/caseload assignments, temporary reassignment/workload balancing |
+| 8.15: reports | Recorded pathway/action/conversation/exposure/outcome indicators, class/year/stream/staff/field/outcome filters, cohort and selected-student CSV/printable reports, annual report and explicit definitions; no suitability scores | Full demographic collection matrix, complete sessions-by-staff/workload presentation and final browser QA |
+| 8.16: outcomes | Dedicated outcome/date/provider/programme/reporting-source/evidence/confidence records; checked outcomes stamp verifier/time; reported and checked outcomes remain distinct | Broader longitudinal dashboards and dedicated outcome documents |
+| 8.17: school administration | Setup, classes/sections, expanded staff roles, primary/bulk/caseload assignment, temporary cover with expiry/revocation, safe rollover/rollback, explicit unassigned-access policy | Contractual retention settings and complete academic-structure matrix |
 | 8.18: imports/exports | Roster CSV mapping/preview/duplicates/rollback; academic CSV/history; shareable exports | Guardian/staff/class-assignment imports and feasible historical-session imports |
-| 8.19: search | Student search/command palette and category-specific catalogue search | One permission-aware search spanning staff, sessions, tasks, interventions and resources |
-| 8.20: notifications | Follow-up views and priority records | Persistent notifications, read state/preferences and all specified event types |
+| 8.19: search | Permission-aware name/title search across students, staff, sessions, tasks, interventions, resources and verified careers/courses/exams/scholarships/institutions; no private-note indexing | Final browser navigation checks and richer resource filters |
+| 8.20: notifications | Internal reminders for sessions, due/overdue tasks, assignments, AI drafts, official deadlines, pathway reviews, missing attendance and contact review; saved read state and per-user preferences | Dedicated stale-source/import-error events and exact task-reassignment event history |
 | 9–11: data/security/verification | Server authentication, tenant RLS, role checks, CAS, audit events, source review/expiry, no private notes in AI/shareable exports | Full role/caseload policy, contractual retention/deletion settings, operational recovery drill and complete content workflow |
 | 12–14: UX/quality | Loading/error/empty states, guarded navigation, guided student journey, keyboard/modal basics, regression suites | Full accessibility and browser coverage across every required workflow; a test cannot cover a feature that is not implemented |
 | 16: launch dataset | Traceable academic pilot, verified occupation titles, ten scholarship listings, eleven playbooks | Representative verified vocational/diploma/apprenticeship route facts and fuller relationship/field coverage |
@@ -56,4 +56,13 @@ The deployed synthetic workflow was exercised end to end: registry creation, sev
 
 ## Launch conclusion
 
-Manyfolds is **not fully conformant with the original specification yet**. The core diagnostic-to-AI-roadmap journey can be improved and verified independently, but missing roles, action-plan/outcome/reminder/reporting capabilities and external launch setup must not be described as finished. Buying a domain alone does not satisfy those requirements.
+Manyfolds is **not fully conformant with every original-spec detail yet**. The major role/caseload, action-plan/outcome, task/calendar, intervention, search/notification and reporting implementations are now present and have synthetic API/RLS regression evidence. Remaining details are listed above and in `SPEC_COMPLETION_WORK.md`. Final browser validation, broad verified relationship/fee/recognition coverage, real sender activation and inbox testing remain separate requirements. Buying a domain alone does not satisfy them.
+
+
+## 20 October implementation evidence
+
+Five new test groups cover staff scope/RLS, plans/outcomes/search/report privacy, tasks/calendar/intervention/notifications, mocked invitation mail and allowlisted platform administration. Registry and assignment writes are server-only; limited roles receive basic projections. Suspension closes tenant RLS as well as APIs, downloads and invitation acceptance. Existing private-note author isolation and approved-only summaries remain enforced.
+
+Six live DGT CTS qualification listings add 36 audited field claims. Six exact structured scholarship-deadline claims support the calendar. Current source audit: 90 active claims, 10 NSP listings, 25 staged candidates, 13 checked source monitors. This is not full national coverage.
+
+SMTP invitation delivery is implemented behind explicit activation, with a server-only sending/sent/failed/unknown ledger. Mock tests send no real email. Sender/domain/provider setup, auth template activation and inbox delivery tests remain blocked on actual mail service configuration.

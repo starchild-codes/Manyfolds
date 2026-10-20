@@ -43,7 +43,14 @@
     "test:roadmap-review": "node --experimental-strip-types scripts/roadmap-review-test.mjs",
     "test:saved-pathways": "node --experimental-strip-types scripts/saved-pathways-test.mjs",
     "test:model-refresh": "node --experimental-strip-types scripts/model-catalogue-refresh-test.mjs",
-    "test:roadmap-generation": "node --experimental-strip-types scripts/roadmap-generation-persistence-test.mjs"
+    "test:roadmap-generation": "node --experimental-strip-types scripts/roadmap-generation-persistence-test.mjs",
+    "test:staff-access": "node --experimental-strip-types scripts/staff-access-test.mjs",
+    "test:planning": "node --experimental-strip-types scripts/planning-workflow-test.mjs",
+    "test:tasks-calendar": "node --experimental-strip-types scripts/tasks-calendar-test.mjs",
+    "test:email": "node --experimental-strip-types scripts/invitation-email-test.mjs",
+    "data:vocational:review": "node scripts/import-dgt-cts.mjs",
+    "data:vocational:publish": "node scripts/import-dgt-cts.mjs --apply",
+    "test:platform": "node --experimental-strip-types scripts/platform-administration-test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0",
@@ -51,6 +58,7 @@
     "connect": "^3.7.0",
     "csv-parse": "^7.0.1",
     "lucide-react": "^1.25.0",
+    "nodemailer": "^10.1.7",
     "pg": "^8.22.0",
     "phaser": "^4.2.1",
     "react": "^19.2.7",
@@ -60,6 +68,7 @@
   "devDependencies": {
     "@types/connect": "^3.4.38",
     "@types/node": "^24.13.2",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

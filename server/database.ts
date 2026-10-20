@@ -7,11 +7,11 @@ export async function checkedDatabaseClient(pool:Pool):Promise<PoolClient>{
  for(let attempt=0;attempt<2;attempt++){
   let client:PoolClient|undefined
   try{client=await pool.connect();await client.query('select 1');return client}
-  catch(error){client?.release(true);if(attempt||!connectionFailure(error))throw error}
+  catch(error){client?.release(true);if(attempt||!connectionFailure(error)){console.error('Database preflight failed:',(error as {code?:string}).code||'connection',error instanceof Error?error.message:'Connection unavailable');throw error}}
  }
  throw new Error('Database connection unavailable.')
 }
-export async function readDatabase(pool:Pool,sql:string,values:unknown[]=[]){
+export async function readDatabase(pool:Pool|PoolClient,sql:string,values:unknown[]=[]){
  try{return await pool.query(sql,values)}catch(error){if(!connectionFailure(error))throw error;return pool.query(sql,values)}
 }
 

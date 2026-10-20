@@ -1,3 +1,4 @@
+import {canGuide} from '../access.ts'
 import type { Pool } from 'pg'
 import type { AiConfig } from './config.ts'
 import type { AuthContext } from './types.ts'
@@ -87,7 +88,7 @@ export class OfficialResearchService {
  }
 
  async search(auth: AuthContext, body: Record<string, unknown>): Promise<ResearchResult> {
-  if (!['owner', 'admin', 'counsellor'].includes(auth.role)) throw new ResearchError('Your role can read saved research but cannot start a paid search.', 403)
+  if (!canGuide(auth.role)) throw new ResearchError('Your role can read saved research but cannot start a paid search.', 403)
   const selection = researchSelection(body), subject = RESEARCH_SUBJECTS[selection.subject]
   if (!this.config.liveDataEnabled || !this.config.apiKey) throw new ResearchError('Official web research is not configured yet.', 503)
   // Reserve durably before the paid call: repeated clicks and concurrent serverless

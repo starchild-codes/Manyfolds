@@ -67,3 +67,11 @@ Changed-page monitoring withheld eighteen pilot claims. Current official NLSIU a
 Six more current NSP cards were audited and published for scheme identity and general application window only: Pragati, Saksham and Swanath technical diploma listings, plus pre-matric, post-matric and top-class disability listings. A strict reviewed manifest pins exact names/card hashes and refuses changed or expired data. Existing pilot claims were rechecked. Current coverage: 44 active claims, 10 verified scholarship listings, 25 pending candidates and 12 checked monitors. National eligibility/benefit/fee/recognition and complete-route coverage remains incomplete.
 
 An on-demand AI research panel now retrieves official current-cycle source excerpts for missing exam/admissions information. Research does not promote claims or silently alter saved roadmaps. See OFFICIAL_AI_RESEARCH.md.
+
+## Vocational expansion, 20 October 2026
+
+Six rows in the live [DGT CTS trade directory](https://dgt.gov.in/en/cts-details) were audited: Electrician, Fitter, Welder, Plumber, Draughtsman (Civil) and Sewing Technology. The reviewed manifest is `data/verified/dgt-cts-trades-2026.json`. `scripts/import-dgt-cts.mjs` fetches the official directory, matches each exact trade and sector, refuses changed entry qualifications/duration/NSQF/approval year, and publishes only those six fields. Its 36 claims expire on 18 January 2027 and have source hashes and row locators. No institution offering, fee, seat, apprenticeship placement or employment claim was inferred.
+
+The knowledge drawer now displays only present, current field claims with their own source and review date. Six reviewed NSP listings also have exact structured scholarship-deadline claims for the source-gated calendar. Existing pilot and ten NSP listings were checked again after source monitoring withheld changed pages. The inaccessible Bar Council relationship remains withheld.
+
+At this audit: **90 active claims, 10 verified scholarship listings, 25 staged candidates and 13 checked source monitors**. This is a representative vocational addition; broad national programme, fee, benefit and recognition coverage remains incomplete. Source expiry and change detection can reduce these counts later.

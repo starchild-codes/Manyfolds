@@ -195,7 +195,7 @@ export type GenerationUsage = {
 export type AuthContext = {
   userId: string
   organisationId: string
-  role: 'owner' | 'admin' | 'counsellor' | 'teacher' | 'viewer'
+  role: 'owner' | 'admin' | 'lead_counsellor' | 'counsellor' | 'guidance_teacher' | 'teacher' | 'data_entry' | 'reviewer' | 'viewer'
 }
 
 export type GenerationRequest = {

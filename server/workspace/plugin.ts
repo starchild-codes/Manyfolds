@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { attachDatabasePool, getDatabasePool, readDatabase } from '../database.ts'
 import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { createAiConfig } from '../ai/config.ts'
+import {platformRequest} from './platform.ts'
 
 const respond = (res: ServerResponse, status: number, body: unknown) => { res.statusCode=status; res.setHeader('Content-Type','application/json'); res.setHeader('Cache-Control','no-store'); res.end(JSON.stringify(body)) }
 const read = async (req: IncomingMessage) => { let body=''; for await (const chunk of req) body+=chunk; return JSON.parse(body||'{}') as Record<string, unknown> }
@@ -10,6 +11,7 @@ const read = async (req: IncomingMessage) => { let body=''; for await (const chu
 export function workspaceApi(env: Record<string, string | undefined>): Plugin {
   const config=createAiConfig(env)
   const curatorIds=new Set((env.MANYFOLDS_CATALOGUE_CURATOR_IDS||'').split(',').map(id=>id.trim()).filter(Boolean))
+  const platformIds=new Set((env.MANYFOLDS_PLATFORM_ADMIN_IDS||'').split(',').map(id=>id.trim()).filter(Boolean))
   const pool=getDatabasePool(config.databaseUrl)
   const auth=async(req:IncomingMessage)=>{
     const token=(req.headers.authorization||'').replace(/^Bearer\s+/,'').trim()
@@ -20,18 +22,22 @@ export function workspaceApi(env: Record<string, string | undefined>): Plugin {
     return data.user
   }
   const context=async(userId:string)=>{
-    const result=await readDatabase(pool,`select m.organisation_id::text,m.role,o.name,o.school_type,o.city,o.state,o.country,o.approximate_student_count from organisation_memberships m join organisations o on o.id=m.organisation_id where m.user_id=$1 and m.active order by m.created_at`,[userId])
+    const result=await readDatabase(pool,`select m.organisation_id::text,m.role,o.active,o.name,o.school_type,o.city,o.state,o.country,o.approximate_student_count from organisation_memberships m join organisations o on o.id=m.organisation_id where m.user_id=$1 and m.active order by m.created_at`,[userId])
     for (const workspace of result.rows) {
       workspace.canManageCatalogue=curatorIds.has(userId)&&['owner','admin'].includes(workspace.role)
+      workspace.canManagePlatform=platformIds.has(userId)
       const classes=await readDatabase(pool,`select c.class_name,coalesce(array_agg(s.section_name order by s.section_name) filter(where s.id is not null),'{}') sections from school_classes c left join school_sections s on s.class_id=c.id where c.organisation_id=$1 group by c.id,c.class_name order by c.class_name`,[workspace.organisation_id])
       workspace.classes=classes.rows
     }
     return result.rows
   }
   const mount = (server: ViteDevServer | PreviewServer) => {server.middlewares.use('/api/workspace',async(req,res)=>{try{
-    const user=await auth(req); const memberships=await context(user.id)
+    const user=await auth(req)
+    if(await platformRequest(req,res,pool,user.id,platformIds))return
+    const memberships=await context(user.id)
     if(req.method==='GET'&&new URL(req.url||'/','http://localhost').pathname==='/') return respond(res,200,{memberships})
     if(req.method==='POST' && new URL(req.url||'/','http://localhost').pathname==='/onboarding') {
+      if(memberships.some(m=>m.active===false))return respond(res,403,{error:'School access is suspended. Contact your platform operator.'})
       const body=await read(req); const name=String(body.name||'').trim(), schoolType=String(body.schoolType||'').trim(), city=String(body.city||'').trim(), state=String(body.state||'').trim(), country=String(body.country||'India').trim(); const estimate=Number(body.approximateStudentCount)||null
       const classes=Array.isArray(body.classes)?body.classes:[]
       if(!name||!schoolType||!city||!state||!classes.length) return respond(res,400,{error:'Complete your school details and add at least one class.'})

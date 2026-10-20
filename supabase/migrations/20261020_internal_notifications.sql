@@ -1,0 +1,12 @@
+begin;
+create table if not exists public.school_notification_state(organisation_id uuid not null references public.organisations(id),user_id uuid not null references auth.users(id),event_key text not null check(length(event_key)<=250),read_at timestamptz not null default now(),primary key(organisation_id,user_id,event_key));
+create table if not exists public.school_notification_preferences(organisation_id uuid not null references public.organisations(id),user_id uuid not null references auth.users(id),preferences jsonb not null default '{}',updated_at timestamptz not null default now(),primary key(organisation_id,user_id));
+alter table public.school_notification_state enable row level security;
+alter table public.school_notification_preferences enable row level security;
+drop policy if exists own_notifications on public.school_notification_state;
+create policy own_notifications on public.school_notification_state for select to authenticated using(organisation_id=public.current_organisation_id() and user_id=auth.uid());
+drop policy if exists own_notification_preferences on public.school_notification_preferences;
+create policy own_notification_preferences on public.school_notification_preferences for select to authenticated using(organisation_id=public.current_organisation_id() and user_id=auth.uid());
+grant select on public.school_notification_state,public.school_notification_preferences to authenticated;
+grant all on public.school_notification_state,public.school_notification_preferences to service_role;
+commit;

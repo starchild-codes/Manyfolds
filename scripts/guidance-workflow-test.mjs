@@ -65,7 +65,7 @@ try{
   const note=await sessionCall(`/session-note?id=${id}`,'PUT',{body:'AUTHOR PRIVATE NOTE',version:0})
   assert.equal(note.status,200)
   assert.equal((await sessionCall(`/session-note?id=${id}`,'PUT',{body:'stale',version:0})).status,409)
-  assert.equal((await sessionCall(`/session?id=${id}`,'GET',undefined,'colleague')).data.note.body,'')
+  assert.equal((await sessionCall(`/session?id=${id}`,'GET',undefined,'colleague')).status,404)
   const guardian=await sessionCall(`/session-export?id=${id}&variant=guardian`)
   assert.equal(guardian.status,200)
   assert.equal(guardian.data.document.summary,'Approved discussion summary')

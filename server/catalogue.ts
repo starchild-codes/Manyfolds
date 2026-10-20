@@ -50,7 +50,8 @@ export function knowledgeApi(env:Record<string,string|undefined>): Plugin {
                   ${type === 'Career' ? record.source : claimPublisher} source_name,
                   ${type === 'Career' ? record.url : claimSource} source_url,
                   ${type === 'Career' ? record.reviewed : claimReviewed} last_reviewed,
-                  ${record.table === 'careers' || record.table === 'scholarships' ? 'verification_status' : "'verified'"} verification_status
+                  ${record.table === 'careers' || record.table === 'scholarships' ? 'verification_status' : "'verified'"} verification_status,
+                  coalesce((select jsonb_agg(jsonb_build_object('field',fact.field_name,'value',fact.claim_value,'sourceUrl',fact.source_url,'publisher',fact.publisher,'checkedAt',fact.checked_at,'cycle',fact.academic_cycle) order by fact.field_name) from catalogue_claims fact where fact.entity_type='${claimType}' and fact.entity_id=${record.id} and fact.field_name in('entry_qualification','duration','nsqf_level','sector','approval_year','application_window') and fact.verification_status='verified' and (fact.expires_at is null or fact.expires_at>=(now() at time zone 'Asia/Kolkata')::date)),'[]') facts
            from ${record.table} where ${filter}
            order by ${record.name} asc limit $${searchValues.length + 1} offset $${searchValues.length + 2}`,
           [...searchValues, limit, (page - 1) * limit],

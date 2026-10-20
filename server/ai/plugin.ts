@@ -1,3 +1,4 @@
+import {AccessError,canGuide} from '../access.ts'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { attachDatabasePool, getDatabasePool } from '../database.ts'
 import type { Plugin } from 'vite'
@@ -127,7 +128,7 @@ export function aiRoadmapApi(env: Record<string, string | undefined>): Plugin {
             return
           }
           if (req.method === 'POST' && url.pathname === '/api/ai-roadmaps') {
-            if(!['owner','admin','counsellor'].includes(auth.role))throw new AuthenticationError('Your role can view roadmaps but cannot generate them.',403)
+            if(!canGuide(auth.role))throw new AuthenticationError('Your role can view roadmaps but cannot generate them.',403)
             const body = (await readJson(req)) as GenerationRequest
             json(res, 200, { generation: await service.generate(auth, body) })
             return
@@ -156,7 +157,7 @@ export function aiRoadmapApi(env: Record<string, string | undefined>): Plugin {
           json(res, 404, { error: 'Roadmap endpoint not found.' })
         } catch (error) {
           const known =
-            error instanceof AuthenticationError || error instanceof RoadmapServiceError || error instanceof ResearchError
+            error instanceof AccessError || error instanceof AuthenticationError || error instanceof RoadmapServiceError || error instanceof ResearchError
           json(res, known ? error.statusCode : 500, {
             error: known
               ? error.message

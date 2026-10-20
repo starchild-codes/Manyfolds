@@ -60,14 +60,14 @@ try{
  const ready=await call(path,'POST','owner',{...draft,requestId:randomUUID(),expectedRevision:1,step:6,status:'review_requested',pinned:['History']});assert.equal(ready.status,201);assert.equal(ready.data.record.revision,2)
  assert.equal((await call(path)).data.records.length,2)
  assert.equal((await call(`/diagnostics?student=${secondKey}`)).data.records.length,0)
- assert.equal((await call(path,'GET','outsider')).data.records.length,0)
+ assert.equal((await call(path,'GET','outsider')).status,404)
  const intervention={id:randomUUID(),title:'School group conversation',scheduledAt:new Date().toISOString(),status:'scheduled',summary:'Shared next steps',studentKeys:[studentKey,secondKey]}
  assert.equal((await call('/interventions','POST','teacher',intervention)).status,403)
  assert.equal((await call('/interventions','POST','outsider',intervention)).status,404)
  assert.equal((await call('/interventions','POST','owner',{...intervention,studentKeys:[studentKey,'absent']})).status,404)
  const group=await call('/interventions','POST','owner',intervention);assert.equal(group.status,201)
  assert.equal((await call('/interventions','POST','owner',intervention)).status,200)
- assert.equal((await call('/interventions','PATCH','owner',{...intervention,version:1,status:'completed',studentKeys:[studentKey]})).status,200)
+ assert.equal((await call('/interventions','PATCH','owner',{...intervention,version:1,status:'completed',studentKeys:[studentKey],details:{attendance:{[studentKey]:'Present'}}})).status,200)
  assert.equal((await call('/interventions','PATCH','owner',{...intervention,version:1})).status,409)
  assert.ok(!(await call('/interventions','GET','outsider')).data.records.some(row=>row.id===intervention.id))
  const range=`/reports?from=${encodeURIComponent(new Date(Date.now()-60000).toISOString())}&to=${encodeURIComponent(new Date(Date.now()+60000).toISOString())}`

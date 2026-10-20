@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-export type StudentWorkflowView = 'students' | 'diagnostic' | 'roadmap' | 'sessions' | 'followups'
+export type StudentWorkflowView = 'students' | 'diagnostic' | 'roadmap' | 'planning' | 'sessions' | 'followups'
 export function diagnosticGrade(grade: string) {
  const matched=grade.match(/^(?:Class\s*)?(8|9|10|11|12)(?:\s|[A-Z]|$)/i)
  return matched?`Class ${matched[1]}`:''

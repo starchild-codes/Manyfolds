@@ -4,6 +4,7 @@ import type { Pool } from 'pg'
 import type { AiConfig } from './config.ts'
 import type { AuthContext } from './types.ts'
 import { readDatabase } from '../database.ts'
+import {schoolRoles,assertAreaAccess} from '../access.ts'
 
 export class AuthenticationError extends Error {
   readonly statusCode: number
@@ -18,6 +19,7 @@ export async function authenticateRoadmapRequest(
   req: IncomingMessage,
   pool: Pool,
   config: AiConfig,
+  area = 'ai',
 ): Promise<AuthContext> {
   const header = req.headers.authorization || ''
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : ''
@@ -36,8 +38,8 @@ export async function authenticateRoadmapRequest(
   try {
     membership = await readDatabase(pool,
       `select organisation_id::text,role
-       from organisation_memberships
-       where user_id=$1 and active
+       from organisation_memberships m
+       where user_id=$1 and active and exists(select 1 from organisations o where o.id=m.organisation_id and o.active)
        order by created_at
        limit 1`,
       [data.user.id],
@@ -50,9 +52,11 @@ export async function authenticateRoadmapRequest(
   }
 
   const row = membership.rows[0] as { organisation_id: string; role: AuthContext['role'] }
-  if (!['owner', 'admin', 'counsellor', 'teacher'].includes(row.role)) {
+  if (!schoolRoles.includes(row.role)) {
     throw new AuthenticationError('Your role cannot generate student roadmaps.', 403)
   }
-  return { userId: data.user.id, organisationId: row.organisation_id, role: row.role }
+  const auth={ userId: data.user.id, organisationId: row.organisation_id, role: row.role }
+  assertAreaAccess(auth,area,new URL(req.url||'/','http://localhost').pathname,req.method||'GET')
+  return auth
 }
 

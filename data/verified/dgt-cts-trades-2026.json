@@ -1,0 +1,15 @@
+{
+  "sourceUrl": "https://dgt.gov.in/en/cts-details",
+  "publisher": "Directorate General of Training, Ministry of Skill Development and Entrepreneurship",
+  "checkedOn": "2026-10-20",
+  "reviewAfter": "2027-01-18",
+  "scope": "National CTS qualification listing only. Provider availability, fees, seats, admission cycles, employment and apprenticeship placement are not established.",
+  "trades": [
+    {"id":"official-dgt-cts-sewing-technology","name":"Sewing Technology","sector":"Apparel","qualification":"Passed 8th class examination","nsqf":"2.5","duration":"One year(1200 Hr)","approvalYear":"2023"},
+    {"id":"official-dgt-cts-fitter","name":"Fitter","sector":"Capital Goods And Manufacturing","qualification":"Passed 10th Class examination with Science and Mathematics or with vocational subject in same sector or its equivalent","nsqf":"4","duration":"Two Year(2400 Hr)","approvalYear":"2025"},
+    {"id":"official-dgt-cts-welder","name":"Welder","sector":"Capital Goods And Manufacturing","qualification":"Passed 8th class examination","nsqf":"2.5","duration":"One year(1200 Hr)","approvalYear":"2025"},
+    {"id":"official-dgt-cts-draughtsman-civil","name":"Draughtsman (Civil)","sector":"Construction","qualification":"Passed 10th Class examination","nsqf":"4","duration":"Two Year(2400 Hr)","approvalYear":"2025"},
+    {"id":"official-dgt-cts-plumber","name":"Plumber","sector":"Plumbing","qualification":"Passed 8th class Examination","nsqf":"2.5","duration":"One year(1200 Hr)","approvalYear":"2025"},
+    {"id":"official-dgt-cts-electrician","name":"Electrician","sector":"Power","qualification":"Passed 10th class examination with Science and Mathematics or with vocational subject in same sector or its equivalent.","nsqf":"4","duration":"Two Year(2400 Hr)","approvalYear":"2025"}
+  ]
+}

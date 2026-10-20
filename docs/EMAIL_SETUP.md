@@ -16,6 +16,12 @@ Status checked 19 October 2026: no domain/provider purchased, no custom SMTP or 
 1. Verify delivery of a fresh-account confirmation to an explicitly designated test inbox. Follow the link in the browser used for signup; confirm a new school gets its own workspace.
 2. Request password recovery for that test account. Open the link and save a new password, then verify the old password no longer works.
 3. Check expired/reused links, provider delivery events, spam placement and rate limits. DNS record presence alone does not prove deliverability.
-4. Staff invitations currently produce secure email-bound links for administrators to share. Automatic invitation emails and operational notifications are separate unfinished workflows; SMTP configuration alone does not implement them.
+4. Staff invitations produce secure email-bound links for administrators to share. The administration screen offers **Send invitation email** when `MANYFOLDS_EMAIL_ENABLED=true`, all SMTP settings are valid, and `MANYFOLDS_SITE_URL` is the approved HTTPS origin. The server validates the live invitation, recipient, school and role, requires TLS, and records delivery state without storing its token or message body. Sent requests are deduplicated; uncertain SMTP acceptance blocks automatic resend. Validate this path in the designated inbox before commercial activation. Operational reminders currently use the in-app inbox; no student or guardian emails are sent.
+
+## Invitation delivery implementation
+
+Apply `20261020_email_delivery.sql`. `school_email_delivery` is server-only and records sending/sent/failed/unknown status. Only failures known to occur before acceptance can be retried, with a maximum of three attempts. A process interruption after SMTP acceptance can leave `sending`; check the provider's delivery log before issuing a replacement invitation. Delivery acceptance does not establish inbox placement.
+
+`npm run test:email` uses a mock SMTP transport to exercise authorization, duplicate requests, known failures and ambiguous acceptance. It sends no real email. SMTP configuration follows [Nodemailer's SMTP transport documentation](https://nodemailer.com/smtp); certificate verification remains enabled and STARTTLS is required on submission ports.
 
 References: [Supabase custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp), [email templates](https://supabase.com/docs/guides/auth/auth-email-templates).

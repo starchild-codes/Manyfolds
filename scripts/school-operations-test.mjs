@@ -39,20 +39,21 @@ try {
  assert.equal((await call('/resources','PATCH','owner',{...resource,version:1,body:'Revised prompts'})).status,200)
  assert.equal((await call('/resources','PATCH','owner',{...resource,version:1})).status,409)
  const csv='ID,Name,Class\nfirst,First student,11 A\nsecond,Second student,11 A'
- const preview=await call('/imports/preview','POST','counsellor',{csv,mapping:{id:'ID',name:'Name',grade:'Class'}});assert.equal(preview.status,200,JSON.stringify(preview.data))
+ const preview=await call('/imports/preview','POST','owner',{csv,mapping:{id:'ID',name:'Name',grade:'Class'}});assert.equal(preview.status,200,JSON.stringify(preview.data))
  const imported={id:randomUUID(),records:preview.data.records,previewHash:preview.data.previewHash}
  assert.equal((await call('/imports','POST','teacher',imported)).status,403)
- assert.equal((await call('/imports','POST','counsellor',{...imported,previewHash:'tampered'})).status,409)
- assert.equal((await call('/imports','POST','counsellor',imported)).data.batch.count,2)
- assert.equal((await call('/imports','POST','counsellor',imported)).status,200)
+ assert.equal((await call('/imports','POST','owner',{...imported,previewHash:'tampered'})).status,409)
+ assert.equal((await call('/imports','POST','owner',imported)).data.batch.count,2)
+ assert.equal((await call('/imports','POST','owner',imported)).status,200)
  const duplicate=await call('/imports/preview','POST','owner',{csv,mapping:{id:'ID',name:'Name',grade:'Class'}});assert.equal(duplicate.data.duplicateIds.length,2)
+ await db.query("insert into school_student_assignments(organisation_id,student_key,staff_id,assigned_by,reason) values($1,'first',$2,$3,'Synthetic shared caseload fixture')",[org,colleague,user])
  const note={studentKey:'first',body:'Confidential test-only note',version:0}
  assert.equal((await call('/private-notes','PUT','teacher',note)).status,403)
  assert.equal((await call('/private-notes','PUT','owner',note)).status,200)
  assert.equal((await call('/private-notes','PUT','owner',note)).status,409)
  assert.equal((await call('/private-notes?student=first')).data.record.body,note.body)
  assert.equal((await call('/private-notes?student=first','GET','colleague')).data.record.body,'')
- assert.equal((await call('/private-notes?student=first','GET','outsider')).data.record.body,'')
+ assert.equal((await call('/private-notes?student=first','GET','outsider')).status,404)
  assert.equal((await call('/private-notes','PUT','colleague',{...note,body:'Colleague private note'})).status,200)
  const profile=blankStudentProfile();profile.overview.language='Hindi';profile.constraints.affordability_band='Sensitive fixture constraint';profile.academics=[{id:randomUUID(),subject:'Mathematics',result:'84',scale:'100',term:'Term 1',year:'2026-27',source:'Synthetic school assessment',resultType:'Reported result'}];profile.family=[{id:randomUUID(),guardian:'Fixture guardian',relationship:'Parent',date:'2026-10-16',concerns:'Private family concern',summary:'Agreed to review course options next month.',summaryStatus:'Draft',acknowledgement:'Not requested'}]
  const profileBody={studentKey:'first',version:0,details:profile}
@@ -76,7 +77,7 @@ try {
  assert.equal((await call('/roadmap-checklist','PUT','teacher',checklist)).status,403)
  assert.equal((await call('/roadmap-checklist','PUT','owner',checklist)).status,200)
  assert.equal((await call('/roadmap-checklist','PUT','owner',checklist)).status,409)
- assert.equal((await call('/roadmap-checklist?student=first&direction=Engineering','GET','teacher')).data.record.steps[0].done,false)
+ assert.equal((await call('/roadmap-checklist?student=first&direction=Engineering','GET','teacher')).status,403)
  assert.equal((await call('/roadmap-checklist?student=first&direction=Engineering','GET','outsider')).status,404)
  assert.equal((await call('/roadmap-checklist?student=first&direction=Design')).data.record.version,0)
  const docCall=async(path,method='GET',actor='owner',data)=>{const response=await fetch(origin+'/api/student-documents'+path,{method,headers:{Authorization:actor,'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined});return {status:response.status,data:await response.json()}}
@@ -87,10 +88,10 @@ try {
  const uploaded=await docCall('/','POST','owner',file);assert.equal(uploaded.status,201,JSON.stringify(uploaded.data));assert.ok(!('content' in uploaded.data.record))
  assert.equal((await docCall('/','POST','owner',file)).status,200)
  assert.equal((await docCall('/','POST','owner',{...file,filename:'changed.txt'})).status,409)
- assert.equal((await docCall('/?student=first','GET','teacher')).data.records.length,0)
+ assert.equal((await docCall('/?student=first','GET','teacher')).status,403)
  assert.equal((await docCall('/','POST','owner',{...file,id:randomUUID(),visibility:'school_staff'})).status,201)
- assert.equal((await docCall('/?student=first','GET','teacher')).data.records.length,1)
- assert.equal((await docCall('/link','POST','teacher',{id:file.id})).status,404)
+ assert.equal((await docCall('/?student=first','GET','teacher')).status,403)
+ assert.equal((await docCall('/link','POST','teacher',{id:file.id})).status,403)
  assert.equal((await docCall('/link','POST','outsider',{id:file.id})).status,404)
  const link=await docCall('/link','POST','owner',{id:file.id});assert.equal(link.status,200);const downloaded=await fetch(origin+link.data.downloadUrl);assert.equal(downloaded.status,200);assert.equal(await downloaded.text(),'Synthetic document for permission checks.');assert.match(downloaded.headers.get('content-disposition'),/^attachment/)
  const tampered=new URL(origin+link.data.downloadUrl);tampered.searchParams.set('signature','0'.repeat(64));assert.equal((await fetch(tampered)).status,401)
@@ -126,7 +127,7 @@ try {
  console.log('Operations HTTP tests passed: configuration conflicts, resources, imports, duplicate protection, rollback, rollover/history, archive preservation, school isolation, detailed profiles/history, academic CSV, approved-only guardian exports and audit privacy. Only temporary schools were modified.')
 } finally {
  if(server)await server.close()
- for(const id of [org,other]){for(const table of ['school_student_documents','student_planning_checklists','student_guidance_profile_history','student_guidance_profiles','student_private_notes','school_audit_events','student_registry_history','school_resources','school_configuration','student_import_batches','school_annual_rollovers','student_registry_records'])await db.query(`delete from ${table} where organisation_id=$1`,[id]);await db.query('delete from organisations where id=$1',[id])}
+ for(const id of [org,other]){for(const table of ['school_student_assignments','school_student_documents','student_planning_checklists','student_guidance_profile_history','student_guidance_profiles','student_private_notes','school_audit_events','student_registry_history','school_resources','school_configuration','student_import_batches','school_annual_rollovers','student_registry_records'])await db.query(`delete from ${table} where organisation_id=$1`,[id]);await db.query('delete from organisations where id=$1',[id])}
  for(const person of [user,colleague])await db.query('delete from auth.users where id=$1',[person])
  await db.end()
 }

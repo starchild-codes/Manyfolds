@@ -1,3 +1,4 @@
+import {AccessError,assertStudentAccess,canGuide,canCounsel,assertAreaAccess} from '../access.ts'
 import { blankStudentProfile, validateStudentProfile, ProfileValidationError } from './profileSchema.ts'
 import { createHash, randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
@@ -8,6 +9,13 @@ import { getDatabasePool, attachDatabasePool, checkedDatabaseClient, readDatabas
 import { createAiConfig } from '../ai/config.ts'
 import { authenticateRoadmapRequest, AuthenticationError } from '../ai/auth.ts'
 import { savedPathsRequest,SavedPathError } from './savedPaths.ts'
+import {staffAccessRequest} from './staffAccess.ts'
+import {planningRequest} from './planning.ts'
+import {PlanningError} from './planningSchema.ts'
+import {reportingRequest} from './reporting.ts'
+import {notificationRequest} from './notifications.ts'
+import {emailRequest} from './email.ts'
+import {searchRequest} from './search.ts'
 
 class OperationError extends Error {readonly statusCode:number;constructor(message:string,statusCode=400){super(message);this.statusCode=statusCode}}
 const reply=(res:ServerResponse,status:number,value:unknown)=>{res.statusCode=status;res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(value))}
@@ -23,9 +31,18 @@ export function schoolOperationsApi(env:Record<string,string|undefined>,authenti
  const config=createAiConfig(env),pool=getDatabasePool(config.databaseUrl)
  const mount=(server:ViteDevServer|PreviewServer)=>{
   server.middlewares.use('/api/operations',async(req,res)=>{try{
-   const auth=await authenticate(req,pool,config),url=new URL(req.url||'/','http://localhost'),path=url.pathname
+   const auth=await authenticate(req,pool,config,'operations'),url=new URL(req.url||'/','http://localhost'),path=url.pathname
+   assertAreaAccess(auth,'operations',path,req.method||'GET')
+   if(await staffAccessRequest(req,res,pool,auth,url))return
+   if(await planningRequest(req,res,pool,auth,url))return
+   if(await reportingRequest(req,res,pool,auth,url))return
+   if(await notificationRequest(req,res,pool,auth,url))return
+   if(await emailRequest(req,res,pool,auth,url,env))return
+   if(await searchRequest(req,res,pool,auth,url))return
+   if(path==='/private-notes'&&!canCounsel(auth.role))throw new OperationError('Private notes are restricted to counselling staff.',403)
+   if(url.searchParams.get('student'))await assertStudentAccess(pool,auth,url.searchParams.get('student')!)
    if(path==='/saved-paths')return await savedPathsRequest(req,res,pool,auth)
-   const admin=['owner','admin'].includes(auth.role),writer=admin||auth.role==='counsellor'
+   const admin=['owner','admin'].includes(auth.role),writer=canGuide(auth.role)||auth.role==='data_entry'
    if(req.method==='GET'){
     if(path==='/roadmap-checklist'){
      const key=url.searchParams.get('student')||'',direction=text(url.searchParams.get('direction')||'',300);if(!direction)throw new OperationError('Select a planning direction.');const student=await readDatabase(pool,'select archived_at from student_registry_records where organisation_id=$1 and external_key=$2',[auth.organisationId,key]);if(!student.rowCount)throw new OperationError('Student is unavailable in your school.',404);const result=await readDatabase(pool,'select steps,version,updated_at from student_planning_checklists where organisation_id=$1 and student_key=$2 and direction=$3',[auth.organisationId,key,direction]);return reply(res,200,{record:result.rows[0]||{steps:[],version:0},archived:Boolean(student.rows[0].archived_at)})
@@ -38,7 +55,7 @@ export function schoolOperationsApi(env:Record<string,string|undefined>,authenti
      const history=await readDatabase(pool,'select version,updated_at from student_guidance_profile_history where organisation_id=$1 and student_key=$2 order by version desc limit 50',[auth.organisationId,key]);return reply(res,200,{record,history:history.rows,latestVersion:current.rows[0]?.version||0,archived:Boolean(student.rows[0].archived_at)})
     }
     if(path==='/private-notes'){if(!writer)throw new OperationError('Private notes are available only to counselling staff.',403);const key=url.searchParams.get('student')||'';const result=await readDatabase(pool,'select body,version,updated_at from student_private_notes where organisation_id=$1 and student_key=$2 and author_id=$3',[auth.organisationId,key,auth.userId]);return reply(res,200,{record:result.rows[0]||{body:'',version:0}})}
-    if(path==='/staff-directory'){const result=await readDatabase(pool,`select m.user_id,coalesce(nullif(u.raw_user_meta_data->>'display_name',''),nullif(u.raw_user_meta_data->>'full_name',''),u.email) name from organisation_memberships m join auth.users u on u.id=m.user_id where m.organisation_id=$1 and m.active and m.role in('owner','admin','counsellor') order by name`,[auth.organisationId]);return reply(res,200,{records:result.rows})}
+    if(path==='/staff-directory'){const result=await readDatabase(pool,`select m.user_id,coalesce(nullif(u.raw_user_meta_data->>'display_name',''),nullif(u.raw_user_meta_data->>'full_name',''),u.email) name from organisation_memberships m join auth.users u on u.id=m.user_id where m.organisation_id=$1 and m.active and m.role in('owner','admin','lead_counsellor','counsellor','guidance_teacher') order by name`,[auth.organisationId]);return reply(res,200,{records:result.rows})}
     if(path==='/configuration'){const result=await readDatabase(pool,'select settings,version,updated_at from school_configuration where organisation_id=$1',[auth.organisationId]);const school=await readDatabase(pool,'select name,school_type,city,state,country from organisations where id=$1',[auth.organisationId]);const classes=await readDatabase(pool,`select c.class_name,coalesce(array_agg(s.section_name order by s.section_name) filter(where s.id is not null),'{}') sections from school_classes c left join school_sections s on s.class_id=c.id where c.organisation_id=$1 group by c.id,c.class_name order by c.class_name`,[auth.organisationId]);return reply(res,200,{configuration:result.rows[0]||{settings:{},version:0},school:school.rows[0],classes:classes.rows})}
     if(path==='/resources'){const result=await readDatabase(pool,'select * from school_resources where organisation_id=$1 order by updated_at desc',[auth.organisationId]);return reply(res,200,{records:result.rows})}
     if(path==='/audit'){if(!admin)throw new OperationError('Only school owners and admins can read the school audit log.',403);const result=await readDatabase(pool,`select a.id,a.event_type,a.created_at,a.metadata,coalesce(u.raw_user_meta_data->>'display_name',u.raw_user_meta_data->>'full_name','School staff') actor_name,s.payload->>'name' student_name from school_audit_events a left join auth.users u on u.id::text=a.actor_id left join student_registry_records s on s.organisation_id=a.organisation_id and s.external_key=a.subject_key where a.organisation_id=$1 order by a.created_at desc limit 200`,[auth.organisationId]);return reply(res,200,{records:result.rows})}
@@ -48,6 +65,9 @@ export function schoolOperationsApi(env:Record<string,string|undefined>,authenti
    if(!writer)throw new OperationError('Your role can view records but cannot change them.',403)
    if(['/configuration','/imports/rollback','/rollovers','/rollovers/rollback'].includes(path)&&!admin)throw new OperationError('Only school owners and admins can perform this operation.',403)
    const body=await read(req)
+   if(typeof body.studentKey==='string')await assertStudentAccess(pool,auth,body.studentKey)
+   if(path==='/private-notes'&&!canCounsel(auth.role))throw new OperationError('Private notes are restricted to counselling staff.',403)
+   if(path.startsWith('/imports')&&!['owner','admin','lead_counsellor','data_entry'].includes(auth.role))throw new OperationError('Roster imports are managed by school administrators and data operators.',403)
    if(path==='/profile-academics/preview'&&req.method==='POST'){
     let records;try{records=parse(text(body.csv,1_000_000),{columns:true,skip_empty_lines:true,trim:true,max_record_size:16000}) as Record<string,string>[]}catch{throw new OperationError('Provide a valid CSV with a header row.')}
     if(!records.length||records.length>200)throw new OperationError('Import between 1 and 200 academic records.')
@@ -141,7 +161,7 @@ export function schoolOperationsApi(env:Record<string,string|undefined>,authenti
     if(path==='/export-log'&&req.method==='POST'){const kind=text(body.kind,50);if(!['student_summary','guidance_report','student_roster','roadmap_checklist'].includes(kind))throw new OperationError('Export type is invalid.');await audit(db,auth.organisationId,auth.userId,`export.${kind}`);await db.query('commit');return reply(res,200,{ok:true})}
     throw new OperationError('School operation endpoint not found.',404)
    }catch(error){await db.query('rollback');throw error}finally{db.release()}
-  }catch(error){const known=error instanceof OperationError||error instanceof AuthenticationError||error instanceof ProfileValidationError||error instanceof SavedPathError;if(!known)console.error('School operation failure code:',(error as {code?:string}).code||'unknown',(error as Error).stack?.split('\n').slice(1,4).join('\n'));return reply(res,known?error.statusCode:503,{error:known?error.message:'Could not confirm this operation. Reload before retrying.'})}})
+  }catch(error){const known=error instanceof PlanningError||error instanceof OperationError||error instanceof AccessError || error instanceof AuthenticationError||error instanceof ProfileValidationError||error instanceof SavedPathError;if(!known)console.error('School operation failure code:',(error as {code?:string}).code||'unknown',(error as Error).stack?.split('\n').slice(1,4).join('\n'));return reply(res,known?error.statusCode:503,{error:known?error.message:'Could not confirm this operation. Reload before retrying.'})}})
   attachDatabasePool(pool,server.httpServer)
  }
  return {name:'manyfolds-operations-api',configureServer:mount,configurePreviewServer:mount}

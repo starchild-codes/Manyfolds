@@ -97,7 +97,7 @@ function defaultSteps(profile: Profile, career: string): Step[] {
   ]
 }
 
-export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify: (message: string) => void;profile:Profile|null;studentKey:string;canEdit:boolean }) {
+export default function Roadmap({ notify,profile,studentKey,canEdit,canApprove=true }: { notify: (message: string) => void;profile:Profile|null;studentKey:string;canEdit:boolean;canApprove?:boolean }) {
   const matches = useMemo(() => (profile ? buildMatches(profile) : []), [profile])
   const [selected, setSelected] = useState(()=>Math.max(0,matches.findIndex(match=>match.name===new URLSearchParams(window.location.search).get('career'))))
   const career = matches[selected]
@@ -226,7 +226,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
         expectedVersion:generation.version,
         roadmap,
         status,
-        counsellorNotes: notes,
+        ...(canApprove?{counsellorNotes:notes}:{}),
       })
       setGeneration(updated)
       notify('Roadmap review saved')
@@ -269,7 +269,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
       const updated = await updateAiRoadmap(generation.id, {
         expectedVersion:generation.version,
         status,
-        counsellorNotes: notes,
+        ...(canApprove?{counsellorNotes:notes}:{}),
       })
       setGeneration(updated)
       notify(`Roadmap marked ${status}`)
@@ -349,15 +349,15 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
             <div className="roadmap-actions">
               {['approved','published'].includes(generation.status)&&<button className="secondary" disabled={!canEdit||exporting||reviewSaving||draftNeedsRefresh} onClick={()=>void exportApproved()}>{exporting?'Preparing document...':'Download approved roadmap'}</button>}
               <button className="secondary" disabled={!canEdit||reviewSaving||generationState==='loading'} onClick={() => void generate(true)}>Regenerate with current data</button>
-              {generation.status === 'draft' && <button className="secondary" disabled={!canEdit||reviewSaving||generationState==='loading'||draftNeedsRefresh} onClick={() => void setStatus('reviewed')}>Save review</button>}
-              {generation.status === 'reviewed' && <button className="new" disabled={!canEdit||reviewSaving||generationState==='loading'||draftNeedsRefresh} onClick={() => void setStatus('approved')}>Approve</button>}
-              {generation.status === 'approved' && (
+              {generation.status === 'draft' && canApprove && <button className="secondary" disabled={!canEdit||reviewSaving||generationState==='loading'||draftNeedsRefresh} onClick={() => void setStatus('reviewed')}>Save review</button>}
+              {generation.status === 'reviewed' && canApprove && <button className="new" disabled={!canEdit||reviewSaving||generationState==='loading'||draftNeedsRefresh} onClick={() => void setStatus('approved')}>Approve</button>}
+              {generation.status === 'approved' && canApprove && (
                 <button className="new" disabled={!canEdit||reviewSaving||generationState==='loading'||draftNeedsRefresh} onClick={() => void setStatus('published')}>Publish</button>
               )}
             </div>
           </div>
           <h2>{generation.roadmap.roadmap_title}</h2>
-          {generation.status==='published'&&<div className="diagnostic-next-step"><h3>Next: agree the follow-up</h3><p>This roadmap is published for school use. No message has been sent to the student or guardian.</p><a className="new" href={studentWorkflowUrl('followups',studentKey)} onClick={event=>followStudentWorkflow(event,'followups',studentKey)}>Open this student's follow-ups</a></div>}
+          {generation.status==='published'&&<div className="diagnostic-next-step"><h3>Next: agree an action plan</h3><p>This roadmap is published for school use. No message has been sent to the student or guardian.</p><a className="new" href={studentWorkflowUrl('planning',studentKey)} onClick={event=>followStudentWorkflow(event,'planning',studentKey)}>Create or review this student's action plan</a><a className="secondary" href={studentWorkflowUrl('followups',studentKey)} onClick={event=>followStudentWorkflow(event,'followups',studentKey)}>Open this student's follow-ups</a></div>}
           {draftNeedsRefresh && <p className="guidance-error" role="status">{generation.profileCurrent===false?'The diagnostic answers have changed since this draft was generated.':'The official evidence behind this draft needs refreshing.'} Regenerate before reviewing, approving, publishing or exporting.</p>}
           <p className="diagnostic-note">{generation.roadmap.summary}</p>
           {verifiedSources.length > 0 && <div className="roadmap-verification-summary">
@@ -456,14 +456,14 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
             Counsellor review notes
             <textarea
               value={notes}
-              disabled={!canEdit||reviewSaving}
+              disabled={!canEdit||!canApprove||reviewSaving}
               maxLength={4000}
               onChange={(event) => setNotes(event.target.value)}
               placeholder="Add context, wording changes, or follow-up notes. These notes are not sent to the model."
             />
           </label>
 
-          {canEdit&&<button className="secondary" disabled={reviewSaving||notes===(generation.counsellorNotes||'')} onClick={()=>void saveNotes()}>{reviewSaving?'Saving review...':'Save review notes'}</button>}
+          {canEdit&&canApprove&&<button className="secondary" disabled={reviewSaving||notes===(generation.counsellorNotes||'')} onClick={()=>void saveNotes()}>{reviewSaving?'Saving review...':'Save review notes'}</button>}
           {verifiedSources.length > 0 && <div className="ai-sources">
             <h3>Sources and verification</h3>
             {verifiedSources.map((source) => (
