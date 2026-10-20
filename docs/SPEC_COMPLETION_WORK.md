@@ -14,7 +14,8 @@ Started 20 October 2026. This is an implementation tracker, not a readiness clai
 - [ ] Complete remaining original-spec details: configurable pipeline, full overview/filter/import matrix, leadership note category, dedicated comparison/consent/deadline documents, public/support pages, broader structured resources and all notification event types
 - [ ] Expand verified institution/programme/fee/benefit/recognition/relationship coverage beyond the current pilot; do not describe a small launch catalogue as national coverage
 - [ ] Activate the actual verified mail sender, apply auth templates and complete fresh-account/recovery/invitation inbox tests
-- [ ] Regression, accessibility/browser verification, deployment and updated audit
+- [x] Expand the regression runner to 24 groups, pass build/lint and deploy the code to the Manyfolds project
+- [ ] Complete authenticated browser/accessibility verification of the new workflows after the user selects their Google account
 
 External activation cannot be reported as complete without the user's actual mail provider, verified sender/domain, and delivery results. No domain/provider had been purchased at the last user update. Existing AI models and budgets remain unchanged.
 
@@ -25,3 +26,5 @@ The new `test:staff-access`, `test:planning`, `test:tasks-calendar`, `test:email
 Current source audit on 20 October 2026: 90 active field claims, 10 current NSP listings, 25 staged candidates and 13 checked source monitors. DGT facts describe national CTS qualifications only; provider availability, fees, seats, enrolment dates and employment outcomes are not inferred. Live counts can fall when a source changes or a claim expires.
 
 Browser verification resumed after reconnecting Edge. The previously authenticated session had expired, so Google account selection is pending. No test writes have been made to real student records.
+
+Deployment `dpl_C5HxsEy9rqeDe8DVKuZQ5szpi9DS` is ready at `https://manyfolds.vercel.app`, from code commit `2c01223`. The live health endpoint returned 200/ready; the public Electrician search returned the five checked displayed fact fields; scholarships returned ten current listings; unauthenticated planning and platform-administration requests returned 401. The release report preserves the original transient task/calendar failure and its successful targeted rerun; all 24 groups currently pass.

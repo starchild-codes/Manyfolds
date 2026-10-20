@@ -22,6 +22,8 @@ Status checked 19 October 2026: no domain/provider purchased, no custom SMTP or 
 
 Apply `20261020_email_delivery.sql`. `school_email_delivery` is server-only and records sending/sent/failed/unknown status. Only failures known to occur before acceptance can be retried, with a maximum of three attempts. A process interruption after SMTP acceptance can leave `sending`; check the provider's delivery log before issuing a replacement invitation. Delivery acceptance does not establish inbox placement.
 
+The production host also needs the SMTP settings, approved `MANYFOLDS_SITE_URL` and `MANYFOLDS_EMAIL_ENABLED=true` configured as server-only environment variables. Local `.env.local` management settings do not automatically activate production invitation delivery. Keep activation off until the verified provider and designated inbox are ready.
+
 `npm run test:email` uses a mock SMTP transport to exercise authorization, duplicate requests, known failures and ambiguous acceptance. It sends no real email. SMTP configuration follows [Nodemailer's SMTP transport documentation](https://nodemailer.com/smtp); certificate verification remains enabled and STARTTLS is required on submission ports.
 
 References: [Supabase custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp), [email templates](https://supabase.com/docs/guides/auth/auth-email-templates).
