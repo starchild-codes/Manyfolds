@@ -7,7 +7,7 @@ export function authRedirectError(search:string,hash:string){
 export function authErrorMessage(value:unknown):string{
  const error=value as {code?:string;message?:string;name?:string}|null
  const code=error?.code||'',message=error?.message||''
- if(['flow_state_expired','flow_state_not_found','bad_code_verifier'].includes(code)||/code.?verifier|pkce|flow state/i.test(message))return 'This sign-in attempt has expired or belongs to another browser. Start a new sign-in in this tab and complete it there.'
+ if(['flow_state_expired','flow_state_not_found','bad_code_verifier','bad_oauth_state'].includes(code)||/code.?verifier|pkce|flow state|oauth state/i.test(message))return 'This sign-in attempt has expired or belongs to another browser. Start a new sign-in in this tab and complete it there.'
  if(code==='access_denied'||code==='user_cancelled')return 'Google sign-in was cancelled or access was denied. Please try again and complete Google’s account selection.'
  if(/invalid_client|client_secret|redirect_uri_mismatch|provider_disabled|oauth_provider_not_supported/.test(code+' '+message))return 'Google sign-in is not configured correctly. Please report this message to the Manyfolds administrator.'
  if(code==='auth_timeout')return 'The sign-in service took too long to respond. Check your connection and start a new sign-in.'

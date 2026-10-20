@@ -37,6 +37,7 @@ const PlatformAdministration=lazy(()=>import('./PlatformAdministration'))
 const InterventionWorkspace=lazy(()=>import('./InterventionWorkspace'))
 import { createStudentRecord, deleteStudentRecord, listStudents, updateStudentRecord, type StudentRecord } from './studentRegistryApi'
 import { AuthCallback, ProtectedWorkspace, SignIn } from './Auth'
+import {authRedirectError} from './authErrors'
 import Onboarding from './Onboarding'
 import { getWorkspaces, type Workspace } from './workspaceApi'
 import { setWorkspaceScope } from './workspaceStorage'
@@ -60,6 +61,7 @@ function CommandPalette({students,canEdit,close,openStudent,navigate,create,navi
 export default function App() {
   const [route,setRoute]=useState(()=>window.location.pathname)
   useEffect(()=>{const handler=()=>setRoute(window.location.pathname);window.addEventListener('popstate',handler);return()=>window.removeEventListener('popstate',handler)},[])
+  if(route==='/'&&authRedirectError(window.location.search,window.location.hash))return <AuthCallback/>
   if(route === '/') return <Landing openDashboard={()=>{window.history.pushState({},'', '/auth');setRoute('/auth')}}/>
   if(route === '/auth') return <SignIn />
   if(route === '/auth/callback') return <AuthCallback />
