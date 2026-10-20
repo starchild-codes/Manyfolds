@@ -1,0 +1,25 @@
+.student-journey { margin-top: 20px; border: 1px solid #dbe2da; border-radius: 12px; background: #fff; padding: 20px; }
+.school-student-selector .student-journey { flex-basis:100%; width:100%; }
+.student-journey-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.student-journey-heading h2 { font-size:19px; margin:4px 0 16px; }
+.student-journey-heading h2 span { font-family:inherit; font-weight:400; font-size:14px; margin-left:10px; color:#657367; }
+.student-journey-heading small { color:#657367; }
+.student-journey ol { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); padding:0; margin:0; list-style:none; gap:10px; }
+.student-journey li a { display:flex; gap:10px; padding:13px 10px; border-radius:8px; text-decoration:none; color:#3b5146; height:100%; border:1px solid transparent; }
+.student-journey li.current a { background:#edf4e9; border-color:#d5e4cd; color:#234936; }
+.student-journey li a:hover,.student-journey li a:focus-visible { outline:2px solid #679580; outline-offset:2px; }
+.student-journey-number { width:26px; height:26px; display:grid; place-items:center; border-radius:50%; background:#e6eee4; flex-shrink:0; font-size:12px; font-weight:700; }
+.student-journey li b,.student-journey li small { display:block; font-size:13px; }
+.student-journey li small { font-size:11px; line-height:1.5; margin-top:5px; color:#647369; }
+.diagnostic-next-step { margin-block:20px; padding:22px; border:1px solid #d5e4cd; border-radius:12px; background:#eef5e9; }
+.diagnostic-next-step h2 { margin:0 0 8px; font-size:21px; }
+.diagnostic-next-step p { margin:0 0 14px; line-height:1.6; }
+.diagnostic-next-step a { display:inline-flex; text-decoration:none; padding:11px 16px; }
+.diagnostic-next-step button:disabled { opacity:.6; }
+.roadmap-direction { margin-block:20px; display:grid; gap:8px; max-width:620px; }
+.roadmap-direction select { padding:12px; border:1px solid #dbe2da; border-radius:8px; background:white; color:#203c2e; width:100%; }
+.ai-roadmap-draft { scroll-margin-top:90px; }
+.student-created-next { margin:20px 32px; padding:20px; border-radius:12px; background:#eef5e9; border:1px solid #d5e4cd; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px; }
+.student-created-next p { margin:5px 0 0; }
+@media(max-width:1000px){.student-journey ol{grid-template-columns:repeat(2,minmax(0,1fr));}.student-journey-heading{align-items:start;flex-direction:column;gap:0;}.student-journey-heading>small{margin-bottom:12px;}}
+@media(max-width:540px){.student-journey{padding:14px;}.student-journey ol{grid-template-columns:1fr;}.student-created-next{margin:16px;}}

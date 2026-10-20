@@ -18,13 +18,14 @@ try {
   await db.query('insert into student_registry_records(organisation_id,external_key,payload) values($1,$2,$3)', [auth.organisationId,studentKey,{id:studentKey,name:'Synthetic generation fixture',grade:'12'}])
   const metadata = (await db.query('select raw_metadata from ai_model_catalogue where model_id=any($1::text[])', [config.allowedModels])).rows.map(row => row.raw_metadata)
   await db.query('update ai_model_health set healthy=true where model_id=any($1::text[])', [config.allowedModels])
-  let calls = 0, rejectFactual = false
+  let calls = 0, rejectFactual = false, changeDuringGeneration = false
   globalThis.fetch = async (url, init) => {
     if (String(url) === 'https://openrouter.ai/api/v1/models') return Response.json({ data: metadata })
     assert.equal(String(url), 'https://openrouter.ai/api/v1/chat/completions')
     calls++
     const body = JSON.parse(init.body)
     const evidence = JSON.parse(body.messages[1].content)
+    if (changeDuringGeneration) await db.query("update student_diagnostic_history set profile=jsonb_set(profile,'{stream}','\"Science\"'::jsonb) where organisation_id=$1 and student_key=$2",[auth.organisationId,studentKey])
     const roadmap = {
       roadmap_title: 'Synthetic persistence test', career_id: rejectFactual ? 'not-in-evidence' : evidence.primary_career.career_id,
       summary: 'Discuss the supplied interests with a counsellor.', why_it_fits: [], important_tradeoffs: [],
@@ -40,7 +41,13 @@ try {
     profile: { grade: 'Class 12', stream: 'Humanities', subjects: { History: 'love' }, skills: { Research: 'enjoy' }, scoreBand: '80-89%', budget: 'Prefer not to answer', examWillingness: 'Open' },
     primaryCareer: { name: 'Law, policy & public affairs', fitFactors: ['matches History'], concerns: [] }, alternativeCareers: [],
   }
-  const first = await service.generate(auth, { ...request, force: true })
+  await assert.rejects(service.generate(auth,request),error=>error.statusCode===422)
+  assert.equal(calls,0,'Missing saved diagnostic must not call the provider')
+  await db.query("insert into student_diagnostic_history(id,organisation_id,student_key,revision,profile,step,status,created_by) values(gen_random_uuid(),$1,$2,1,$3,6,'draft',$4)",[auth.organisationId,studentKey,request.profile,auth.userId])
+  await assert.rejects(service.generate(auth,request),error=>error.statusCode===422)
+  await db.query("update student_diagnostic_history set status='ready' where organisation_id=$1 and student_key=$2",[auth.organisationId,studentKey])
+  const first = await service.generate(auth, { ...request, profile:{...request.profile,stream:'Tampered client value'}, force: true })
+  assert.equal((await db.query('select stream,country from student_profiles where organisation_id=$1 and student_external_id=$2',[auth.organisationId,studentKey])).rows[0].stream,'Humanities','Generation uses saved answers rather than client overrides')
   assert.equal(first.status, 'draft')
   const cached = await service.generate(auth, request)
   assert.equal(cached.id, first.id)
@@ -64,6 +71,12 @@ try {
   assert.equal((await service.latest(auth,studentKey)).version,regenerated.version,'Rejected AI text must not overwrite the saved draft')
   const failuresAfter=Number((await db.query('select coalesce(sum(consecutive_failures),0) failures from ai_model_health where model_id=any($1::text[])',[config.allowedModels])).rows[0].failures)
   assert.ok(failuresAfter>failuresBefore,'Schema-valid factual failures must count against model health')
+  rejectFactual=false
+  changeDuringGeneration=true
+  await db.query('update ai_model_health set healthy=true where model_id=any($1::text[])',[config.allowedModels])
+  const concurrent=await service.generate(auth,{...request,force:true})
+  assert.equal(concurrent.profileCurrent,false,'A diagnostic changed during provider execution must invalidate the result, regardless of timestamps')
+  await assert.rejects(service.update(auth,concurrent.id,{expectedVersion:concurrent.version,status:'reviewed'}),error=>error.statusCode===422)
   const callsBeforeArchive=calls
   await db.query('update student_registry_records set archived_at=now() where organisation_id=$1 and external_key=$2',[auth.organisationId,studentKey])
   await assert.rejects(service.generate(auth, { ...request, force:true }), error=>error.statusCode===404)

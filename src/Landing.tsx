@@ -8,10 +8,10 @@ const interestExamples = [
 ]
 
 const processSteps = [
-  'Tell us what shapes your choices.',
-  'See careers and courses that connect your interests.',
-  'Compare eligibility, costs, location, and alternatives.',
-  'Build a plan you can revisit and reshape.',
+  'Add a student or import the school roster.',
+  'Record the diagnostic together during a guidance meeting.',
+  'Generate an AI roadmap and review the evidence.',
+  'Agree next actions and track follow-ups over time.',
 ]
 
 function FoldMark({ large = false }: { large?: boolean }) {
@@ -154,19 +154,19 @@ export default function Landing({ openDashboard }: { openDashboard: () => void }
       <main>
         <section className="manyfolds-hero">
           <div className="hero-copy">
-            <p className="eyebrow">Personalised pathway exploration</p>
+            <p className="eyebrow">Career guidance for schools</p>
             <h1>
               More than one interest.
               <em>More than one way forward.</em>
             </h1>
             <p className="hero-lead">
               Manyfolds brings together subjects, skills, academics, priorities, and
-              circumstances—so students can explore careers, courses, colleges, and
-              the pathways between them.
+              circumstances so school counsellors and guidance teachers can explore options
+              with students, record decisions, and keep follow-ups connected.
             </p>
             <div className="hero-actions">
               <button type="button" onClick={openDashboard}>
-                Explore my possibilities <span>↗</span>
+                Open the staff workspace <span>↗</span>
               </button>
               <a href="#how">See how it works</a>
             </div>
@@ -261,7 +261,7 @@ export default function Landing({ openDashboard }: { openDashboard: () => void }
           <p className="eyebrow">Manyfolds</p>
           <h2>Your future does not have to fit into one box.</h2>
           <button type="button" onClick={openDashboard}>
-            Start exploring <span>↗</span>
+            Staff sign in <span>↗</span>
           </button>
         </section>
       </main>

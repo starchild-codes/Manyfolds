@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { savePath } from './savedPathways'
+import { followStudentWorkflow, studentWorkflowUrl } from './studentWorkflowNavigation'
 
 export default function CareerActions({ name, studentKey }: { name: string; studentKey: string }) {
   const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle')
@@ -21,7 +22,7 @@ export default function CareerActions({ name, studentKey }: { name: string; stud
   return <>
     <div className="card-actions">
       <a className="new" href={path}>Explore Career</a>
-      <a className="secondary" href={`/dashboard?view=roadmap&${context}`}>View Full Roadmap</a>
+      <a className="secondary" href={studentWorkflowUrl('roadmap',studentKey,name)} onClick={event=>followStudentWorkflow(event,'roadmap',studentKey,name)}>Plan this direction with AI</a>
       <button className="text-button" disabled={state !== 'idle'} onClick={() => void save()}>
         {state === 'saving' ? 'Saving...' : state === 'saved' ? 'Saved' : 'Save to My Plan'}
       </button>

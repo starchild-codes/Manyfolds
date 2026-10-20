@@ -1,7 +1,7 @@
 import { withAuthTimeout } from './authErrors'
 import { supabase } from './supabaseClient'
 
-export type Workspace = { organisation_id: string; role: string; name: string; school_type?: string; city?: string; state?: string; country?: string; approximate_student_count?: number; classes?: Array<{class_name:string;sections:string[]}> }
+export type Workspace = { organisation_id: string; role: string; name: string; canManageCatalogue?:boolean; school_type?: string; city?: string; state?: string; country?: string; approximate_student_count?: number; classes?: Array<{class_name:string;sections:string[]}> }
 const request = async (path: string, init?: RequestInit) => {
   if (!supabase) throw new Error('Authentication is unavailable.')
   const { data: { session } } = await withAuthTimeout(supabase.auth.getSession())

@@ -76,6 +76,7 @@ export type AiRoadmapSource = {
 
 export type AiRoadmapGeneration = {
   sourcesCurrent?: boolean
+  profileCurrent?: boolean
   id: string
   version:number
   counsellorNotes?:string
@@ -135,6 +136,17 @@ const request = async (path: string, init?: RequestInit) => {
 }
 
 export const getLatestAiRoadmap = (studentExternalId?:string) => request(`/api/ai-roadmaps/latest${studentExternalId?`?student_external_id=${encodeURIComponent(studentExternalId)}`:''}`)
+
+export type ApprovedRoadmapDocument={studentName:string;schoolName:string;author:string;generatedAt:string;roadmapGeneratedAt:string;status:string;version:number;roadmap:AiRoadmap;sources:AiRoadmapSource[]}
+export async function exportReviewedAiRoadmap(id:string,expectedVersion:number):Promise<ApprovedRoadmapDocument>{
+  if(!supabase)throw new Error('Authentication is unavailable.')
+  const {data:{session}}=await withAuthTimeout(supabase.auth.getSession())
+  if(!session)throw new Error('Please sign in again.')
+  const response=await fetch(`/api/ai-roadmaps/${encodeURIComponent(id)}/export`,{method:'POST',signal:AbortSignal.timeout(30_000),headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({expectedVersion})})
+  const payload=await response.json().catch(()=>({}))
+  if(!response.ok||!payload.document)throw new Error(payload.error||'The approved roadmap could not be exported.')
+  return payload.document
+}
 
 export const generateAiRoadmap = (body: {
   studentExternalId?: string

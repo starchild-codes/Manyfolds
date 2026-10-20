@@ -29,7 +29,10 @@ try {
     if (expectedProgramme) assert.ok(evidence.verified_programmes.some(programme => programme.programme_name === expectedProgramme), `${name} missing sourced programme`)
     assert.ok(evidence.source_records.some(source => source.source_url.startsWith('https://')), `${name} missing official source`)
     if (name.startsWith('Software')) assert.ok(!evidence.verified_relationships.some(link => link.relationship_type === 'career_to_course'), 'Seeded software career-to-course mapping was promoted without a relationship claim')
-    if (name.startsWith('Law')) assert.ok(evidence.verified_relationships.some(link => link.relationship_type === 'career_to_course' && link.to_id === expectedCourse), 'Sourced law degree route missing')
+    if (name.startsWith('Law')) {
+      const relation=await client.query(`select 1 from catalogue_claims where claim_key='relationship:lawyer:ballb' and verification_status='verified' and (expires_at is null or expires_at>=(now() at time zone 'Asia/Kolkata')::date)`)
+      assert.equal(evidence.verified_relationships.some(link => link.relationship_type === 'career_to_course' && link.to_id === expectedCourse),Boolean(relation.rowCount),'Career-to-course evidence must follow the current relationship claim; a stale regulator page must not be promoted')
+    }
     if (name.startsWith('Law')) assert.ok(evidence.verified_admission_cycles.some(cycle => cycle.application_deadline === '2026-10-31'), 'CLAT 2027 deadline missing')
   }
   await client.query("update catalogue_claims set verification_status='stale' where claim_key='course:iitd-cse:name'")

@@ -9,6 +9,7 @@ import { ROADMAP_PROMPT_VERSION } from './prompt.ts'
 import { compactEvidence, remainingOutputBudget, TokenBudgetError } from './tokens.ts'
 import { parseAndValidateRoadmap } from './validation.ts'
 import { roadmapSourceState } from './sourceState.ts'
+import { diagnosticProfileHash } from './profileState.ts'
 import type {
   AuthContext,
   CompactSourceRecord,
@@ -52,6 +53,11 @@ export class RoadmapService {
     this.config = config
   }
 
+  private async profileIsCurrent(auth:AuthContext,studentKey:string,profileHash:string|null){
+    const result=await this.pool.query(`select profile,status from student_diagnostic_history where organisation_id=$1 and student_key=$2 order by revision desc limit 1`,[auth.organisationId,studentKey])
+    return !result.rowCount || (['ready','review_requested'].includes(result.rows[0].status) && profileHash === diagnosticProfileHash(result.rows[0].profile))
+  }
+
   private async evidenceSnapshot(
     auth: AuthContext,
     studentExternalId: string,
@@ -59,15 +65,16 @@ export class RoadmapService {
     evidenceHash: string,
     tokenEstimate: number,
     sourceStateHash: string,
+    profileHash: string,
   ) {
     const result = await this.pool.query(
       `insert into roadmap_evidence_snapshots
-       (organisation_id,student_external_id,evidence_hash,evidence,input_token_estimate,source_state_hash)
-       values($1,$2,$3,$4,$5,$6)
+       (organisation_id,student_external_id,evidence_hash,evidence,input_token_estimate,source_state_hash,diagnostic_profile_hash)
+       values($1,$2,$3,$4,$5,$6,$7)
        on conflict(organisation_id,student_external_id,evidence_hash)
        do update set input_token_estimate=excluded.input_token_estimate
        returning id`,
-      [auth.organisationId, studentExternalId, evidenceHash, evidence, tokenEstimate, sourceStateHash],
+      [auth.organisationId, studentExternalId, evidenceHash, evidence, tokenEstimate, sourceStateHash, profileHash],
     )
     return result.rows[0].id as string
   }
@@ -89,11 +96,12 @@ export class RoadmapService {
     auth: AuthContext,
   ) {
     const evidenceResult = await this.pool.query(
-      `select evidence,source_state_hash from roadmap_evidence_snapshots where id=$1`,
+      `select evidence,source_state_hash,student_external_id,diagnostic_profile_hash from roadmap_evidence_snapshots where id=$1`,
       [row.evidence_snapshot_id],
     )
     const evidence = evidenceResult.rows[0]?.evidence as RoadmapEvidencePackage | undefined
     const sourcesCurrent = evidence ? evidenceResult.rows[0]?.source_state_hash === await roadmapSourceState(this.pool, evidence) || !evidence.source_records.some(source => source.verification_status === 'verified') : false
+    const profileCurrent=await this.profileIsCurrent(auth,evidenceResult.rows[0]?.student_external_id,evidenceResult.rows[0]?.diagnostic_profile_hash)
     if (evidence) {
       const validation = parseAndValidateRoadmap(row.roadmap, evidence)
       if (!validation.schemaValid || !validation.factualValid) return null
@@ -101,6 +109,7 @@ export class RoadmapService {
     return {
       id: row.id,
       sourcesCurrent,
+      profileCurrent,
       version: row.version,
       counsellorNotes: ['owner','admin','counsellor'].includes(auth.role)?row.counsellor_notes:undefined,
       roadmap: row.roadmap,
@@ -149,11 +158,17 @@ export class RoadmapService {
         throw new RoadmapServiceError('A completed profile and selected career are required.')
       }
       if(request.studentExternalId){const student=await this.pool.query('select 1 from student_registry_records where organisation_id=$1 and external_key=$2 and archived_at is null',[auth.organisationId,request.studentExternalId]);if(!student.rowCount)throw new RoadmapServiceError('This student is unavailable or archived in your school.',404)}
+      if (request.studentExternalId) {
+        const saved = await this.pool.query('select profile,status from student_diagnostic_history where organisation_id=$1 and student_key=$2 order by revision desc limit 1',[auth.organisationId,request.studentExternalId])
+        if (!saved.rowCount || !['ready','review_requested'].includes(saved.rows[0].status)) throw new RoadmapServiceError('Complete and save this student’s career diagnostic before generating an AI roadmap.',422)
+        request = {...request,profile:saved.rows[0].profile}
+      }
+      const profileHash = diagnosticProfileHash(request.profile)
       const evidence = await buildEvidencePackage(this.pool, auth, request)
       const compacted = compactEvidence(evidence, this.config)
       const studentExternalId = compacted.evidence.student.student_id
       const sourceStateHash = await roadmapSourceState(this.pool, compacted.evidence)
-      const evidenceHash = hash({ evidence: compacted.evidence, sourceStateHash })
+      const evidenceHash = hash({ evidence: compacted.evidence, sourceStateHash, profileHash })
       const generationHash = hash({
         evidenceHash,
         prompt: ROADMAP_PROMPT_VERSION,
@@ -167,6 +182,7 @@ export class RoadmapService {
         evidenceHash,
         compacted.estimatedInputTokens,
         sourceStateHash,
+        profileHash,
       )
 
       if (!request.force) {
@@ -181,7 +197,7 @@ export class RoadmapService {
         )
         if (cached.rowCount) {
           const cachedGeneration = await this.safeGenerationResponse(cached.rows[0], true,auth)
-          if (cachedGeneration?.sourcesCurrent) return cachedGeneration
+          if (cachedGeneration?.sourcesCurrent&&cachedGeneration.profileCurrent) return cachedGeneration
         }
       }
 
@@ -512,6 +528,25 @@ export class RoadmapService {
     }
   }
 
+  async exportApproved(auth: AuthContext, generationId: string, expectedVersion: unknown) {
+    if(!['owner','admin','counsellor'].includes(auth.role))throw new RoadmapServiceError('Only counselling staff can export an approved roadmap.',403)
+    if(!Number.isSafeInteger(expectedVersion))throw new RoadmapServiceError('Reload the roadmap before exporting.',409)
+    const result=await this.pool.query(`select g.*,s.payload->>'name' student_name,o.name school_name,
+      coalesce(nullif(u.raw_user_meta_data->>'display_name',''),nullif(u.raw_user_meta_data->>'full_name',''),'School staff') author
+      from roadmap_generations g join student_registry_records s on s.organisation_id=g.organisation_id and s.external_key=g.student_external_id and s.archived_at is null
+      join organisations o on o.id=g.organisation_id join auth.users u on u.id=$3
+      where g.id=$1 and g.organisation_id=$2`,[generationId,auth.organisationId,auth.userId])
+    const row=result.rows[0]
+    if(!row)throw new RoadmapServiceError('Roadmap not found for an active student in your school.',404)
+    if(row.version!==expectedVersion)throw new RoadmapServiceError('This roadmap changed. Reload before exporting.',409)
+    if(!['approved','published'].includes(row.status))throw new RoadmapServiceError('Review and approve this roadmap before creating a shareable document.',409)
+    const generation=await this.safeGenerationResponse(row,false,auth)
+    if(!generation||!generation.sourcesCurrent||!generation.profileCurrent)throw new RoadmapServiceError('Refresh and review this roadmap before exporting; its evidence or diagnostic answers have changed.',422)
+    const document={studentName:row.student_name,schoolName:row.school_name,author:row.author,generatedAt:new Date().toISOString(),roadmapGeneratedAt:row.generated_at,status:row.status,version:row.version,roadmap:generation.roadmap,sources:generation.sources.filter(source=>source.verification_status==='verified')}
+    await this.pool.query(`insert into school_audit_events(organisation_id,actor_id,event_type,subject_key,metadata) values($1,$2,'export.approved_ai_roadmap',$3,$4)`,[auth.organisationId,auth.userId,row.student_external_id,{generationId,version:row.version}])
+    return document
+  }
+
   async update(
     auth: AuthContext,
     generationId: string,
@@ -520,7 +555,7 @@ export class RoadmapService {
     if(!['owner','admin','counsellor'].includes(auth.role))throw new RoadmapServiceError('Your role cannot review roadmaps.',403)
     if(!Number.isSafeInteger(payload.expectedVersion)||Number(payload.expectedVersion)<1)throw new RoadmapServiceError('Reload the roadmap to obtain its current version.',409)
     const existing = await this.pool.query(
-      `select g.*,e.evidence,e.source_state_hash
+      `select g.*,e.evidence,e.source_state_hash,e.diagnostic_profile_hash
        from roadmap_generations g join roadmap_evidence_snapshots e on e.id=g.evidence_snapshot_id
        where g.id=$1 and g.organisation_id=$2
          and not exists(select 1 from student_registry_records s where s.organisation_id=g.organisation_id
@@ -549,7 +584,8 @@ export class RoadmapService {
     const nextStatus=payload.status||(payload.roadmap?'draft':row.status)
     if(!transitions[row.status]?.includes(nextStatus))throw new RoadmapServiceError('Review the draft before approval, and approve it before publication.',409)
     if(payload.roadmap&&nextStatus!=='draft')throw new RoadmapServiceError('Save content edits as a draft, then review the saved version.',409)
-    if(['reviewed','approved','published'].includes(nextStatus)){
+    if((payload.status||payload.roadmap)&&['reviewed','approved','published'].includes(nextStatus)){
+      if(!await this.profileIsCurrent(auth,row.student_external_id,row.diagnostic_profile_hash))throw new RoadmapServiceError('The diagnostic answers changed after this draft. Generate and review a roadmap using the latest saved diagnostic.',422)
       const validation=parseAndValidateRoadmap(roadmap,row.evidence as RoadmapEvidencePackage)
       if(!validation.schemaValid||!validation.factualValid||!row.schema_valid||!row.factual_validation_valid)throw new RoadmapServiceError('This roadmap must pass evidence validation before review or publication.',422)
       const evidence = row.evidence as RoadmapEvidencePackage

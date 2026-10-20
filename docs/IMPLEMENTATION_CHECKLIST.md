@@ -129,3 +129,23 @@ Research now accepts short questions such as When is JEE Main 2027? and returns 
 
 
 Production browser follow-through on 19 October found the live-research environment flag disabled. It was explicitly enabled for Manyfolds production and deployed again. The signed-in owner submitted When is NID DAT 2027? through the deployed Ask AI form and received the cached source-grounded answer with the official handbook link, check time and collapsed supporting excerpts. No student record was edited. The previously unavailable browser connection was restored for this check.
+
+## Product audit and counsellor journey, 19 October 2026
+
+The feature-group audit against the original specification is in [PRODUCT_SPEC_AUDIT.md](PRODUCT_SPEC_AUDIT.md). It explicitly lists missing capabilities; this release is not a claim of full specification or commercial readiness.
+
+The student journey now preserves student/career context, defaults the diagnostic grade, guards unsaved answers/review notes and provides explicit diagnostic-to-AI and published-roadmap-to-follow-up actions. Career-fit percentages were removed. Approved, current AI roadmaps can be downloaded as printable HTML with a Print / Save as PDF action; private notes are excluded and exports are audited. School/role/version/archive/source/diagnostic freshness gates are enforced by the server. Exact saved diagnostic answers supply generation input, including a canonical fingerprint to detect changes during the model request. Migration `20261019_roadmap_diagnostic_hash.sql` was applied.
+
+The final automated sweep passed **19/19 test groups**, with detailed timestamped output in ignored `output/qa/release-sweep.json`. Production build and lint passed. The subsequent question-step scroll adjustment passed a fresh build/lint. Deployment `dpl_6AVkWJhUT7ivYfLgDgTwxbEW7wAJ` is ready at `https://manyfolds.vercel.app`; its health endpoint returned 200.
+
+Four existing Bharati College name/programme claims were reverified against the current official programme page. The Bar Council relationship stays stale because its official page returned no readable evidence. No admissions rule, fee or eligibility was inferred from the programme names.
+
+### Deployed journey verification, 19–20 October 2026
+
+Using only an explicitly synthetic student, the signed-in owner created a record, completed all seven diagnostic steps, reopened saved answers, selected a software direction from the exploration report, generated a live AI draft, saved a review, approved and published it, downloaded the approved document, created a student-linked follow-up and marked it complete. The primary approved Mistral model succeeded in 18.2 seconds with 3,298 total tokens. The saved generation contains the diagnostic fingerprint. The downloaded HTML contains the approval/shareable classifications and excludes the unique internal-note sentinel. Its export audit event was confirmed.
+
+On 20 October the published draft and completed follow-up remained saved. Reloading follow-ups and returning through the sidebar retained the selected student. The approval banner correctly identifies approval. At 390 × 844, the journey uses one column, has no horizontal overflow and contains zero visible occurrences of “unverified”. Download and follow-up actions remain accessible. The temporary viewport was reset. Screenshots and the downloaded document are retained under ignored `output/qa/`; these do not contain real student information. The browser download event observer timed out, but the actual downloaded file was found and its content checked successfully.
+
+Final UI follow-through deployment: `dpl_H5GCRq6PTBzhPzvRckx78Y1h1Yyc`, ready and aliased to `https://manyfolds.vercel.app`. It includes approval-aware origin labels, persistent student filters across reload/sidebar navigation, question-step scroll reset and the fixed-header anchor offset. A fresh build/lint and targeted journey/guidance suites passed after the substantive follow-up changes; the final CSS offset passed another build/lint.
+
+The synthetic student was soft-archived after verification on 20 October. Its completed follow-up, diagnostic/roadmap history, usage and audit records are preserved. The cleanup transaction confirmed every other registry row remained unchanged. The browser was returned to the normal student registry.

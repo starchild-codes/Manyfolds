@@ -10,6 +10,9 @@ const reviewed=[]
 const fetchPage=async(url)=>{const response=await fetch(url,{signal:AbortSignal.timeout(20000)});if(!response.ok)throw new Error(`Official source returned ${response.status}`);const html=await response.text();return {url,html,hash:createHash('sha256').update(html).digest('hex'),text:html.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&#160;/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim()}}
 const add=(page,keys,locator)=>{for(const key of keys)reviewed.push({key,page,locator})}
 const law=await fetchPage('https://www.nls.ac.in/programme/ba-llb-hons/')
+const bharati=await fetchPage('https://www.bharaticollege.du.ac.in/academics/program')
+if(!bharati.text.includes('Bharati College')||!bharati.text.includes('Department of Commerce')||!bharati.text.includes('B.Com (Hons.) aims')||!bharati.text.includes('Department of Psychology')||!bharati.text.includes('students of B.A. (Hons) Psychology'))throw new Error('Bharati programme identity or offering needs manual review')
+add(bharati,['course:bharati-bcom:name','institution:bharati:name','programme:bharati-bcom:offering','programme:bharati-psychology:offering'],'College masthead and current Department of Commerce / Psychology programme outcomes. Names and offering only; cycle-specific eligibility, fees and recognition are not inferred.')
 if(!law.text.includes('B.A., LL.B. (Hons.)')||!law.text.includes('National Law School of India University'))throw new Error('NLSIU identity or offering changed')
 const eligibility=law.text.slice(law.text.indexOf('A Pass in 10+2'),law.text.indexOf('Intake and Reservation'))
 if(!eligibility.includes('Forty Five percent (45%)')||!eligibility.includes('Forty percent (40%)')||!eligibility.includes('Common Law Admission Test (CLAT)')||!eligibility.includes('no upper age limit'))throw new Error('NLSIU eligibility needs manual review')

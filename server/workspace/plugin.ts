@@ -9,6 +9,7 @@ const read = async (req: IncomingMessage) => { let body=''; for await (const chu
 
 export function workspaceApi(env: Record<string, string | undefined>): Plugin {
   const config=createAiConfig(env)
+  const curatorIds=new Set((env.MANYFOLDS_CATALOGUE_CURATOR_IDS||'').split(',').map(id=>id.trim()).filter(Boolean))
   const pool=getDatabasePool(config.databaseUrl)
   const auth=async(req:IncomingMessage)=>{
     const token=(req.headers.authorization||'').replace(/^Bearer\s+/,'').trim()
@@ -21,6 +22,7 @@ export function workspaceApi(env: Record<string, string | undefined>): Plugin {
   const context=async(userId:string)=>{
     const result=await readDatabase(pool,`select m.organisation_id::text,m.role,o.name,o.school_type,o.city,o.state,o.country,o.approximate_student_count from organisation_memberships m join organisations o on o.id=m.organisation_id where m.user_id=$1 and m.active order by m.created_at`,[userId])
     for (const workspace of result.rows) {
+      workspace.canManageCatalogue=curatorIds.has(userId)&&['owner','admin'].includes(workspace.role)
       const classes=await readDatabase(pool,`select c.class_name,coalesce(array_agg(s.section_name order by s.section_name) filter(where s.id is not null),'{}') sections from school_classes c left join school_sections s on s.class_id=c.id where c.organisation_id=$1 group by c.id,c.class_name order by c.class_name`,[workspace.organisation_id])
       workspace.classes=classes.rows
     }

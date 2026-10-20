@@ -133,6 +133,12 @@ export function aiRoadmapApi(env: Record<string, string | undefined>): Plugin {
             return
           }
           const match = url.pathname.match(/^\/api\/ai-roadmaps\/([0-9a-f-]+)$/i)
+          const exportMatch=url.pathname.match(/^\/api\/ai-roadmaps\/([0-9a-f-]+)\/export$/i)
+          if(req.method==='POST'&&exportMatch){
+            const body=await readJson(req)
+            json(res,200,{document:await service.exportApproved(auth,exportMatch[1],body.expectedVersion)})
+            return
+          }
           if (req.method === 'PATCH' && match) {
             if(auth.role==='teacher')throw new AuthenticationError('Your role can view roadmaps but cannot change them.',403)
             const body = await readJson(req)

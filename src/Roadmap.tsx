@@ -3,6 +3,7 @@ import {
   generateAiRoadmap,
   getLatestAiRoadmap,
   updateAiRoadmap,
+  exportReviewedAiRoadmap,
   RoadmapRequestError,
   type AiRoadmap,
   type AiRoadmapGeneration,
@@ -11,6 +12,8 @@ import { buildMatches, type Profile } from './recommendationEngine'
 import { EmptyState, LoadingSkeleton, StatusBadge } from './UiPrimitives'
 import { operationsRequest } from './operationsApi'
 import OfficialResearch from './OfficialResearch'
+import { followStudentWorkflow, studentWorkflowUrl } from './studentWorkflowNavigation'
+import { approvedRoadmapHtml } from './roadmapDocument'
 
 type Step = {
   id: string
@@ -96,7 +99,7 @@ function defaultSteps(profile: Profile, career: string): Step[] {
 
 export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify: (message: string) => void;profile:Profile|null;studentKey:string;canEdit:boolean }) {
   const matches = useMemo(() => (profile ? buildMatches(profile) : []), [profile])
-  const [selected, setSelected] = useState(0)
+  const [selected, setSelected] = useState(()=>Math.max(0,matches.findIndex(match=>match.name===new URLSearchParams(window.location.search).get('career'))))
   const career = matches[selected]
   const [steps,setSteps]=useState<Step[]>([])
   const [checklist,setChecklist]=useState<{version:number;updated_at?:string}>({version:0})
@@ -115,11 +118,14 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [notes, setNotes] = useState('')
   const [reviewSaving,setReviewSaving]=useState(false)
+  const [exporting,setExporting]=useState(false)
 
   useEffect(() => {
+    let active=true
     setLoadingSaved(true)
     void getLatestAiRoadmap(studentKey)
       .then((latest) => {
+        if(!active)return
         setGeneration(latest)
         setSavedDraftInvalid(false)
         setNotes(latest?.counsellorNotes||'')
@@ -128,21 +134,33 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
         setErrorSource(null)
       })
       .catch((error) => {
+        if(!active)return
         setSavedDraftInvalid(error instanceof RoadmapRequestError && error.statusCode === 422)
         setGenerationState('error')
         setGenerationError(error instanceof Error ? error.message : 'Could not load the saved roadmap.')
         setErrorSource('load')
       })
-      .finally(() => setLoadingSaved(false))
+      .finally(() => {if(active)setLoadingSaved(false)})
+    return()=>{active=false}
   }, [loadAttempt,studentKey])
+
+  useEffect(()=>{
+    const dirty=notes!==(generation?.counsellorNotes||'')
+    const busy=generationState==='loading'||reviewSaving||checklistSaving||exporting
+    const beforeUnload=(event:BeforeUnloadEvent)=>{if(dirty||busy){event.preventDefault();event.returnValue=''}}
+    const beforeNavigate=(event:Event)=>{if(busy){event.preventDefault();notify('Wait for the current roadmap operation to finish before leaving.')}else if(dirty&&!window.confirm('Leave this roadmap? Save your review notes first to keep them.'))event.preventDefault()}
+    window.addEventListener('beforeunload',beforeUnload);window.addEventListener('manyfolds-before-navigate',beforeNavigate)
+    return()=>{window.removeEventListener('beforeunload',beforeUnload);window.removeEventListener('manyfolds-before-navigate',beforeNavigate)}
+  },[notes,generation?.counsellorNotes,generationState,reviewSaving,checklistSaving,exporting,notify])
 
   if (!profile) {
     return (
       <div className="content diagnostic">
         <p className="eyebrow">Pathway planner</p>
-        <div className="panel"><EmptyState title="Start with a diagnostic profile" description="Complete the Career Diagnostic first so the roadmap can reflect subjects, priorities, and practical constraints." action={<a className="new" href="/dashboard?view=diagnostic">Open Career Diagnostic</a>} /></div>
+        <div className="panel"><EmptyState title="Complete this student's diagnostic first" description="Save all diagnostic steps, including the final review. Then return here to generate an AI roadmap for this student." action={<a className="new" href={studentWorkflowUrl('diagnostic',studentKey)} onClick={event=>followStudentWorkflow(event,'diagnostic',studentKey)}>Continue this student's diagnostic</a>} /></div>
         <OfficialResearch canEdit={canEdit} />
       </div>
+
     )
   }
 
@@ -160,7 +178,7 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
 
   const generate = async (force = false) => {
     if (!career) return
-    if (force && !window.confirm('Regenerate this draft using the current profile and verified data?')) return
+    if (force && !window.confirm(`Regenerate this draft using the current saved profile and verified data?${notes !== (generation?.counsellorNotes || '') ? ' Save any review notes you want to keep before regenerating.' : ''}`)) return
     setGenerationState('loading')
     setGenerationError('')
     setErrorSource(null)
@@ -280,6 +298,18 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
   }
 
   const savedStatusUnavailable = errorSource === 'load' && Boolean(generationError) && !savedDraftInvalid
+  const draftNeedsRefresh=generation?.sourcesCurrent===false||generation?.profileCurrent===false
+  const exportApproved=async()=>{
+    if(!generation||exporting)return
+    setExporting(true)
+    try{
+      const document=await exportReviewedAiRoadmap(generation.id,generation.version)
+      const url=URL.createObjectURL(new Blob([approvedRoadmapHtml(document)],{type:'text/html;charset=utf-8'})),link=window.document.createElement('a')
+      link.href=url;link.download='manyfolds-approved-roadmap.html';link.click();URL.revokeObjectURL(url)
+      notify('Approved roadmap downloaded. Open it to print or save as PDF.')
+    }catch(error){notify(error instanceof Error?error.message:'Approved roadmap could not be exported.')}
+    finally{setExporting(false)}
+  }
 
   return (
     <div className="content diagnostic roadmap">
@@ -291,17 +321,18 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
         </div>
       </div>
 
+      <label className="roadmap-direction">Direction for the next AI draft<select value={selected} disabled={loadingSaved||generationState==='loading'||reviewSaving} onChange={event=>setSelected(Number(event.target.value))}>{matches.map((match,index)=><option value={index} key={match.name}>{match.name}</option>)}</select><small>Choose a direction from the diagnostic. Generating a draft is a separate step.</small></label>
       <section className={`roadmap-status-card ${generationState === 'loading' || loadingSaved ? 'is-loading' : savedStatusUnavailable || savedDraftInvalid ? 'has-error' : generation ? 'has-roadmap' : 'is-empty'}`} role="status" aria-live="polite">
         <span className="roadmap-status-icon" aria-hidden="true">{generationState === 'loading' || loadingSaved ? '◷' : savedStatusUnavailable ? '!' : generation ? '✓' : '＋'}</span>
         <div className="roadmap-status-copy">
-          <p className="eyebrow">{loadingSaved ? 'Checking saved AI work' : generationState === 'loading' ? 'AI generation in progress' : savedDraftInvalid ? 'SAVED AI DRAFT: VERIFICATION REQUIRED' : savedStatusUnavailable ? 'AI roadmap status unavailable' : generation ? 'AI GENERATED · SAVED IN YOUR WORKSPACE' : 'AI ROADMAP · NOT GENERATED'}</p>
-          <h2>{loadingSaved ? 'Looking for an AI-generated roadmap' : generationState === 'loading' ? 'AI is generating your roadmap' : savedDraftInvalid ? 'Your saved AI draft needs regeneration' : savedStatusUnavailable ? 'Could not confirm your AI roadmap' : generation ? 'Your AI-generated roadmap is ready' : 'Generate your first AI roadmap'}</h2>
+          <p className="eyebrow">{loadingSaved ? 'Checking saved AI work' : generationState === 'loading' ? 'AI generation in progress' : savedDraftInvalid ? 'SAVED AI DRAFT: VERIFICATION REQUIRED' : savedStatusUnavailable ? 'AI roadmap status unavailable' : generation ? (draftNeedsRefresh?'SAVED AI ROADMAP - UPDATE NEEDED':'AI GENERATED · SAVED IN YOUR WORKSPACE') : 'AI ROADMAP · NOT GENERATED'}</p>
+          <h2>{loadingSaved ? 'Looking for an AI-generated roadmap' : generationState === 'loading' ? 'AI is generating your roadmap' : savedDraftInvalid ? 'Your saved AI draft needs regeneration' : savedStatusUnavailable ? 'Could not confirm your AI roadmap' : generation ? (draftNeedsRefresh?'Update the saved AI roadmap':'Your AI-generated roadmap is ready') : 'Generate your first AI roadmap'}</h2>
           <p>{loadingSaved ? 'This should only take a moment.' : generationState === 'loading' ? 'Manyfolds is organising your profile and the available verified records. You can keep this page open.' : savedDraftInvalid ? 'A previous draft is saved, but it no longer passes the verification checks and is withheld. Generate a new draft using current evidence.' : savedStatusUnavailable ? 'Retry the workspace check to see whether a draft is already saved.' : generation ? `${generation.roadmap.roadmap_title} · Generated ${new Date(generation.generatedAt).toLocaleString()} · ${generation.status.replaceAll('_', ' ')}. Review the AI draft and its sources below.` : `Your diagnostic profile is ready. The rule-based checklist below is separate. Generate a saved AI draft for ${career?.name || 'your selected direction'}.`}</p>
           {generation && generationState === 'loading' && <small>Your previous saved roadmap remains available below while the new draft is built.</small>}
           {generation && generationState !== 'loading' && <small>This draft uses a saved evidence snapshot. Regenerate to check the current verified catalogue.</small>}
         </div>
         <div className="roadmap-status-actions">
-          {generation ? <a className="new" href="#ai-roadmap-draft">View saved roadmap</a> : !loadingSaved && generationState !== 'loading' && !generationError && <button className="new" disabled={!canEdit} onClick={() => void generate(false)}>Generate AI Roadmap</button>}
+          {generation ? draftNeedsRefresh?<button className="new" disabled={!canEdit||generationState==='loading'||reviewSaving} onClick={()=>void generate(true)}>Regenerate AI roadmap</button>:<a className="new" href="#ai-roadmap-draft">View saved roadmap</a> : !loadingSaved && generationState !== 'loading' && !generationError && <button className="new" disabled={!canEdit} onClick={() => void generate(false)}>Generate AI Roadmap</button>}
         </div>
       </section>
       {loadingSaved && !generation && <div className="panel roadmap-loading"><LoadingSkeleton label="Loading saved roadmap" rows={2} /></div>}
@@ -309,23 +340,25 @@ export default function Roadmap({ notify,profile,studentKey,canEdit }: { notify:
 
       {generation && (
         <section id="ai-roadmap-draft" className="panel ai-roadmap-draft">
-          <div className="roadmap-ai-origin"><strong>AI-GENERATED ROADMAP</strong><span>Created {new Date(generation.generatedAt).toLocaleString()} · {verifiedSources.length ? 'Based on your profile and the cited official records' : 'Profile-based exploration guidance'} · Counsellor review required</span></div>
+          <div className="roadmap-ai-origin"><strong>AI-GENERATED ROADMAP</strong><span>Created {new Date(generation.generatedAt).toLocaleString()} · {verifiedSources.length ? 'Based on your profile and the cited official records' : 'Profile-based exploration guidance'} · {['approved','published'].includes(generation.status)?'Approved by school counselling staff':generation.status==='reviewed'?'Reviewed · awaiting approval':'Counsellor review required'}</span></div>
           <div className="ai-roadmap-meta">
             <div>
               <p className="eyebrow">Roadmap details <StatusBadge tone={generation.status === 'approved' || generation.status === 'published' ? 'success' : 'neutral'}>{generation.status.replaceAll('_', ' ')}</StatusBadge></p>
               <small>Review the guidance and its evidence below.</small>
             </div>
             <div className="roadmap-actions">
+              {['approved','published'].includes(generation.status)&&<button className="secondary" disabled={!canEdit||exporting||reviewSaving||draftNeedsRefresh} onClick={()=>void exportApproved()}>{exporting?'Preparing document...':'Download approved roadmap'}</button>}
               <button className="secondary" disabled={!canEdit||reviewSaving||generationState==='loading'} onClick={() => void generate(true)}>Regenerate with current data</button>
-              {generation.status === 'draft' && <button className="secondary" disabled={!canEdit||reviewSaving||generationState==='loading'} onClick={() => void setStatus('reviewed')}>Save review</button>}
-              {generation.status === 'reviewed' && <button className="new" disabled={!canEdit||reviewSaving||generationState==='loading'} onClick={() => void setStatus('approved')}>Approve</button>}
+              {generation.status === 'draft' && <button className="secondary" disabled={!canEdit||reviewSaving||generationState==='loading'||draftNeedsRefresh} onClick={() => void setStatus('reviewed')}>Save review</button>}
+              {generation.status === 'reviewed' && <button className="new" disabled={!canEdit||reviewSaving||generationState==='loading'||draftNeedsRefresh} onClick={() => void setStatus('approved')}>Approve</button>}
               {generation.status === 'approved' && (
-                <button className="new" disabled={!canEdit||reviewSaving||generationState==='loading'} onClick={() => void setStatus('published')}>Publish</button>
+                <button className="new" disabled={!canEdit||reviewSaving||generationState==='loading'||draftNeedsRefresh} onClick={() => void setStatus('published')}>Publish</button>
               )}
             </div>
           </div>
           <h2>{generation.roadmap.roadmap_title}</h2>
-          {generation.sourcesCurrent === false && <p className="guidance-error" role="status">The evidence behind this draft needs refreshing. Regenerate with current data before approving or publishing it.</p>}
+          {generation.status==='published'&&<div className="diagnostic-next-step"><h3>Next: agree the follow-up</h3><p>This roadmap is published for school use. No message has been sent to the student or guardian.</p><a className="new" href={studentWorkflowUrl('followups',studentKey)} onClick={event=>followStudentWorkflow(event,'followups',studentKey)}>Open this student's follow-ups</a></div>}
+          {draftNeedsRefresh && <p className="guidance-error" role="status">{generation.profileCurrent===false?'The diagnostic answers have changed since this draft was generated.':'The official evidence behind this draft needs refreshing.'} Regenerate before reviewing, approving, publishing or exporting.</p>}
           <p className="diagnostic-note">{generation.roadmap.summary}</p>
           {verifiedSources.length > 0 && <div className="roadmap-verification-summary">
             <span><b>{verifiedSources.length}</b> verified sources</span>

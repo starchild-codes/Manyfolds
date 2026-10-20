@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test:release": "node scripts/release-sweep.mjs",
+    "test:journey": "node --experimental-strip-types scripts/student-journey-test.mjs",
     "email:check": "node scripts/configure-auth-email.mjs",
     "email:configure": "node scripts/configure-auth-email.mjs --apply",
     "test:research": "node --experimental-strip-types scripts/official-research-test.mjs",

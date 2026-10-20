@@ -1,0 +1,17 @@
+import type { ApprovedRoadmapDocument } from './aiRoadmapApi'
+const escape=(value:unknown)=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]!))
+export function approvedRoadmapHtml(document:ApprovedRoadmapDocument){
+ const r=document.roadmap,ids=new Set(document.sources.map(source=>source.record_id))
+ const stages=r.stages.filter(stage=>!stage.unverified&&stage.source_record_ids.some(id=>ids.has(id)))
+ const sourceLinks=document.sources.filter(source=>{try{return new URL(source.source_url).protocol==='https:'}catch{return false}})
+ return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(document.studentName)} - Manyfolds roadmap</title><style>body{font:16px/1.6 Arial,sans-serif;color:#233c30;max-width:820px;margin:40px auto;padding:24px}h1{font-size:30px;line-height:1.25}h2{font-size:21px;margin-top:28px}article{border-top:1px solid #dbe2da;padding:14px 0}small{color:#52695a}.classification{padding:12px;background:#edf4e9;font-weight:bold}a{color:#215e49;overflow-wrap:anywhere}.print{padding:10px 16px;border:1px solid #215e49;background:white;border-radius:6px}p{white-space:pre-wrap}@media print{body{margin:0;padding:0;font-size:11pt}.print{display:none}h2{break-after:avoid}article{break-inside:avoid}a{color:inherit}}</style></head><body>
+ <button class="print" onclick="window.print()">Print / Save as PDF</button><p class="classification">STUDENT / PARENT SHAREABLE</p><h1>${escape(r.roadmap_title)}</h1>
+ <p><b>Student:</b> ${escape(document.studentName)}<br><b>School:</b> ${escape(document.schoolName)}<br><b>Prepared by:</b> ${escape(document.author)}<br><b>Document generated:</b> ${escape(new Date(document.generatedAt).toLocaleString())}<br><b>Approved roadmap version:</b> ${escape(document.version)}</p>
+ <p><b>AI-generated guidance, reviewed and approved by school counselling staff.</b> This is guidance for discussion, not an admission decision.</p><p>${escape(r.summary)}</p>
+ ${r.why_it_fits.length?`<h2>Reasons to explore this direction</h2>${r.why_it_fits.map(item=>`<article><b>${escape(item.factor)}</b><p>${escape(item.student_evidence)}</p></article>`).join('')}`:''}
+ ${stages.length?`<h2>Pathway stages</h2>${stages.map(stage=>`<article><b>${escape(stage.title)}</b><p>${escape(stage.description)}</p>${stage.verified_deadline?`<p>Official deadline: ${escape(stage.verified_deadline)}</p>`:''}</article>`).join('')}`:''}
+ <h2>Next steps for counsellor discussion</h2>${r.next_actions.map(action=>`<article><b>${escape(action.action)}</b><p>${escape(action.reason)}</p></article>`).join('')}
+ ${r.questions_for_counsellor.length?`<h2>Questions for the next meeting</h2><ul>${r.questions_for_counsellor.map(item=>`<li>${escape(item)}</li>`).join('')}</ul>`:''}
+ ${sourceLinks.length?`<h2>Official sources</h2><ul>${sourceLinks.map(source=>`<li><a href="${escape(source.source_url)}">${escape(source.name)}</a>${source.admission_cycle?` - ${escape(source.admission_cycle)}`:''}</li>`).join('')}</ul>`:'<p>This roadmap provides profile-based exploration. Check current admissions details with official sources before applying.</p>'}
+ <small>Private counsellor notes and internal review notes are excluded. Open this document in a browser and select Print / Save as PDF for an offline copy.</small></body></html>`
+}
