@@ -7,6 +7,7 @@ export type StudentRecord = {
   initials: string
   grade: string
   stage: string
+  pipelineStage?:string
   counsellor: string
   counsellorId?: string
   followUp: string

@@ -50,7 +50,8 @@
     "test:email": "node --experimental-strip-types scripts/invitation-email-test.mjs",
     "data:vocational:review": "node scripts/import-dgt-cts.mjs",
     "data:vocational:publish": "node scripts/import-dgt-cts.mjs --apply",
-    "test:platform": "node --experimental-strip-types scripts/platform-administration-test.mjs"
+    "test:platform": "node --experimental-strip-types scripts/platform-administration-test.mjs",
+    "test:pipeline": "node --experimental-strip-types scripts/pipeline-workflow-test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0",

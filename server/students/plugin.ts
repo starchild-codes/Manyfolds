@@ -66,6 +66,8 @@ export function studentsApi(env: Record<string, string | undefined>,authenticate
           const body = await readBody(req)
           if (!validStudent(body.record)) throw new StudentRequestError('A student ID, name and class are required.', 400)
           const { version: _version, ...record } = body.record
+          if(record.pipelineStage!==undefined&&record.pipelineStage!=='basic_record_created')throw new StudentRequestError('Create the basic record, then review stage changes through the guidance pipeline.',400)
+          if(record.stage!==undefined&&!['Not started','Basic record created','Not onboarded'].includes(String(record.stage)))throw new StudentRequestError('Create the basic record, then review stage changes through the guidance pipeline.',400)
           if(auth.role==='data_entry')Object.assign(record,{stage:'Not started',counsellor:'Unassigned',counsellorId:'',followUp:'Not scheduled',pathway:'Not yet set',completion:0,priority:undefined})
           if(!['owner','admin','lead_counsellor','data_entry'].includes(auth.role))record.counsellorId=auth.userId
           const result = await writeQuery(
@@ -84,11 +86,15 @@ export function studentsApi(env: Record<string, string | undefined>,authenticate
           if (!validStudent(body.record) || body.record.id !== key || !Number.isSafeInteger(body.expectedVersion) || Number(body.expectedVersion) < 1) {
             throw new StudentRequestError('A matching student record and version are required.', 400)
           }
-          const { version: _version, ...record } = body.record
-          if(!['owner','admin','lead_counsellor'].includes(auth.role)){
-            const previous=(await pool.query('select payload from student_registry_records where organisation_id=$1 and external_key=$2',[auth.organisationId,key])).rows[0]?.payload
-            if((record.counsellorId||'')!==(previous?.counsellorId||''))throw new StudentRequestError('Ask a school administrator or lead counsellor to change assignments.',403)
-            if(auth.role==='data_entry')for(const field of new Set([...Object.keys(record),...Object.keys(previous||{})]))if(!['name','grade','initials'].includes(field)&&JSON.stringify(record[field])!==JSON.stringify(previous?.[field]))throw new StudentRequestError('Data entry access is limited to demographic and class fields.',403)
+          const { version: _version, archivedAt:_archivedAt, ...record } = body.record
+          const prior=(await pool.query('select payload from student_registry_records where organisation_id=$1 and external_key=$2',[auth.organisationId,key])).rows[0]?.payload
+          if(!prior)throw new StudentRequestError('Student unavailable.',404)
+          if(auth.role==='data_entry'){
+            for(const [field,value] of Object.entries(record))if(!['id','name','grade','initials'].includes(field)&&JSON.stringify(value)!==JSON.stringify(prior[field]))throw new StudentRequestError('Data entry access is limited to demographic and class fields.',403)
+            const {name,grade,initials}=record;Object.assign(record,prior,{name,grade,initials})
+          }else{
+            if(record.stage!==prior.stage||record.pipelineStage!==prior.pipelineStage)throw new StudentRequestError('Use the guidance pipeline to validate stage changes and record a reason.',400)
+            if(!['owner','admin','lead_counsellor'].includes(auth.role)&&(record.counsellorId||'')!==(prior.counsellorId||''))throw new StudentRequestError('Ask a school administrator or lead counsellor to change assignments.',403)
           }
           const result = await writeQuery(
             `update student_registry_records set payload=$4,version=version+1,
@@ -98,7 +104,7 @@ export function studentsApi(env: Record<string, string | undefined>,authenticate
             [auth.organisationId, key, body.expectedVersion, record, auth.userId],
           )
           if (!result.rowCount) throw new StudentRequestError('This student changed elsewhere. Reload before editing again.', 409)
-          return json(res, 200, { record: { ...record, version: Number(result.rows[0].version) } })
+          return json(res, 200, { record: { ...(auth.role==='data_entry'?Object.fromEntries(['id','name','initials','grade','stage','pathway','followUp'].map(field=>[field,record[field]])):record), version: Number(result.rows[0].version) } })
         }
         if (req.method === 'PATCH') {
           if(!['owner','admin'].includes(auth.role))throw new StudentRequestError('Only a school owner or admin can restore a student.',403)

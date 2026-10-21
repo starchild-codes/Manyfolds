@@ -181,3 +181,18 @@ Google sign-in succeeded on 20 October after fixing expired OAuth redirects (com
 Synthetic browser fixture cleanup on 21 October: student 97cc5c0a-c2ef-4a53-ac59-b7913605ca12 was soft-archived with its two planning records and audit/history preserved. The transaction confirmed every other registry row was unchanged. No real student record was edited.
 
 Production deployment dpl_DGr64mygr3qUkZJ1QhvPZ5Vnwyz6 is READY and aliased to https://manyfolds.vercel.app from code commit 41c2f2a. The first deployment attempt returned Not authorized; an explicit Manyfolds team scope succeeded without changing account permissions. Live health and planning SPA checks returned 200; unauthenticated comparison POST and reporting GET returned 401. Authenticated visual checks of these refinements remain pending the browser connection.
+
+
+## 21 October guidance pipeline implementation
+
+Implemented the fourteen original-spec stages with stable internal keys and legacy-stage mapping. The new board and table support class/section, primary-staff and student filters, archived visibility, selection of up to 100 visible students, drag-to-review and keyboard-accessible move controls. A move is saved only after staff supply a reason. Server validation checks saved profile/session/pathway/plan/application/outcome support for the corresponding stages. An explicit counsellor override is separately recorded. Suggestions use current saved records, never change stages automatically and do not move students backwards.
+
+School owners/admins can rename pipeline display labels with version conflict protection, distinct labels and all underlying stages retained. These custom labels apply to the pipeline; other screens retain the standard stage label. Stage history records the saved version, actor, reason, override and archive/restore changes. Existing legacy student rows were not rewritten and old history is not fabricated. Full registry versions remain available separately.
+
+Applied 20261021_guidance_pipeline.sql after a successful rolled-back DDL check. Configuration/history have scoped read RLS and server-only writes. New registry records cannot claim an advanced stage, and ordinary registry edits cannot bypass pipeline validation. Data-entry name/class saves now merge only permitted demographic changes into the protected server record and return the basic projection, preserving stage, assignments and internal fields.
+
+Added test:pipeline to the release runner (now 25 groups). Targeted pipeline checks cover stage/legacy mapping, no-mutation suggestions, label conflicts, caseload and direct RLS isolation, prerequisites, explicit override, atomic bulk failure, stale versions, normal-registry bypass prevention, projected demographic saves and archive/restore history. Only synthetic fixture schools are used and cleaned. Build/lint and relevant regression results are recorded below after completion. The full 25-group release sweep has not been rerun for this increment.
+
+Browser inventory on 21 October still contains no connected browser. Authenticated drag/keyboard/responsive visual validation remains pending; API/RLS checks do not replace it. SMTP sender activation, broad verified data coverage and the other remaining specification details above are still open.
+
+Pipeline release checks: npm run build, npm run lint, npm run test:pipeline, npm run test:planning and npm run test:operations passed on 21 October. The final pipeline regression also verifies that a projected data-entry name/class save preserves the canonical stage and internal sentinel while returning no internal sentinel. All synthetic fixtures were cleaned. No real school student stages or labels were changed.

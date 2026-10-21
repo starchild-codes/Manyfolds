@@ -15,6 +15,7 @@ import {PlanningError} from './planningSchema.ts'
 import {reportingRequest} from './reporting.ts'
 import {notificationRequest} from './notifications.ts'
 import {emailRequest} from './email.ts'
+import {pipelineRequest} from './pipeline.ts'
 import {searchRequest} from './search.ts'
 
 class OperationError extends Error {readonly statusCode:number;constructor(message:string,statusCode=400){super(message);this.statusCode=statusCode}}
@@ -33,6 +34,7 @@ export function schoolOperationsApi(env:Record<string,string|undefined>,authenti
   server.middlewares.use('/api/operations',async(req,res)=>{try{
    const auth=await authenticate(req,pool,config,'operations'),url=new URL(req.url||'/','http://localhost'),path=url.pathname
    assertAreaAccess(auth,'operations',path,req.method||'GET')
+   if(await pipelineRequest(req,res,pool,auth,url))return
    if(await staffAccessRequest(req,res,pool,auth,url))return
    if(await planningRequest(req,res,pool,auth,url))return
    if(await reportingRequest(req,res,pool,auth,url))return
