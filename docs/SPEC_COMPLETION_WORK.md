@@ -11,6 +11,7 @@ Started 20 October 2026. This is an implementation tracker, not a readiness clai
 - [x] Implement permission-aware unified title/name search, student guidance timeline and a persistent notification read state/preferences inbox
 - [x] Audit six current DGT CTS vocational qualification listings and publish 36 exact field claims; add six exact scholarship deadline claims and recheck existing pilot/NSP listings
 - [x] Implement explicitly requested staff-invitation SMTP delivery and server-only delivery ledger; test with a mock transport
+- [x] Implement fourteen-stage pipeline board/table, cohort filters, validated atomic bulk moves, reasons/overrides, suggestions, label configuration and scoped stage history; visual browser verification remains pending
 - [ ] Complete remaining original-spec details: full overview/filter/import matrix, leadership note category, dedicated consent/deadline documents, public/support pages, broader structured resources and all notification event types
 - [ ] Expand verified institution/programme/fee/benefit/recognition/relationship coverage beyond the current pilot; do not describe a small launch catalogue as national coverage
 - [ ] Activate the actual verified mail sender, apply auth templates and complete fresh-account/recovery/invitation inbox tests
@@ -59,3 +60,5 @@ Added test:pipeline to the release runner (now 25 groups). Targeted pipeline che
 Browser inventory on 21 October still contains no connected browser. Authenticated drag/keyboard/responsive visual validation remains pending; API/RLS checks do not replace it. SMTP sender activation, broad verified data coverage and the other remaining specification details above are still open.
 
 Pipeline release checks: npm run build, npm run lint, npm run test:pipeline, npm run test:planning and npm run test:operations passed on 21 October. The final pipeline regression also verifies that a projected data-entry name/class save preserves the canonical stage and internal sentinel while returning no internal sentinel. All synthetic fixtures were cleaned. No real school student stages or labels were changed.
+
+Pipeline production deployment dpl_9mruZtdn9JTjHRdn1ATErV3Z2Hmk is READY at https://manyfolds.vercel.app from code commit 878a820. Vercel also passed the current production build. Live health and the pipeline SPA returned 200; pipeline, label and history APIs returned 401 without authentication. The regression runner now includes 25 groups, but this increment ran only the affected pipeline/planning/operations suites, build and lint.
