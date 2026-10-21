@@ -8,10 +8,22 @@ const send=(res:ServerResponse,data:unknown,status=200)=>{res.statusCode=status;
 const uuid=(value:unknown):value is string=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 async function input(req:IncomingMessage){let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>180000)throw new PlanningError('Use a smaller planning record.',413)}try{const parsed=JSON.parse(raw);if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw Error();return parsed as Record<string,unknown>}catch{throw new PlanningError('Provide a valid planning request.')}}
 export async function planningRequest(req:IncomingMessage,res:ServerResponse,pool:Pool,auth:AuthContext,url:URL){
- if(!['/planning','/planning-history','/planning-export','/timeline'].includes(url.pathname))return false
+ if(!['/planning','/planning-history','/planning-export','/planning-comparison','/timeline'].includes(url.pathname))return false
  if(!canGuide(auth.role))throw new PlanningError('Planning records are limited to assigned guidance staff.',403)
  const key=url.searchParams.get('student')||'';await assertStudentAccess(pool,auth,key)
  const org=auth.organisationId
+ if(url.pathname==='/planning-comparison'){
+  if(req.method!=='POST')throw new PlanningError('Method not allowed.',405)
+  const body=await input(req),selections=body.records
+  if(!Array.isArray(selections)||selections.length<2||selections.length>4||selections.some(r=>!r||typeof r!=='object'||!uuid(r.id)||!Number.isSafeInteger(r.version)||r.version<1)||new Set(selections.map(r=>r.id)).size!==selections.length)throw new PlanningError('Choose two to four different saved pathways and their current versions.')
+  const result=await pool.query("select p.id,p.version,p.payload->>'title' title,p.payload->>'category' category,p.payload->>'shareableSummary' summary,p.payload->>'summaryApproved' approved,p.payload->>'status' status,s.payload->>'name' student,o.name school from school_student_planning p join student_registry_records s on s.organisation_id=p.organisation_id and s.external_key=p.student_key and s.archived_at is null join organisations o on o.id=p.organisation_id where p.organisation_id=$1 and p.student_key=$2 and p.kind='pathway' and p.id=any($3::uuid[])",[org,key,selections.map(r=>r.id)])
+  if(result.rows.length!==selections.length)throw new PlanningError('A selected pathway is unavailable for this student.',404)
+  const records=selections.map(selection=>result.rows.find(r=>r.id===selection.id)!)
+  if(records.some((row,i)=>row.version!==selections[i].version))throw new PlanningError('A selected pathway changed. Reload and review the latest summaries before downloading.',409)
+  if(records.some(row=>row.approved!=='true'||!row.summary||row.status==='archived'))throw new PlanningError('Every selected pathway needs a current approved summary and must not be archived.',409)
+  await pool.query("insert into school_audit_events(organisation_id,event_type,actor_id,subject_key,metadata) values($1,'export.pathway_comparison',$2,$3,$4)",[org,auth.userId,key,{records:selections}])
+  send(res,{document:{student:records[0].student,school:records[0].school,generatedAt:new Date().toISOString(),records:records.map(({id,version,title,category,summary,status})=>({id,version,title,category,summary,status}))}});return true
+ }
  if(url.pathname==='/planning-export'){
   if(req.method!=='GET'||!uuid(url.searchParams.get('id')))throw new PlanningError('Choose a saved planning record.')
   const result=await pool.query("select p.id,p.kind,p.version,p.payload->>'title' title,p.payload->>'shareableSummary' summary,p.payload->>'summaryApproved' approved,s.payload->>'name' student,o.name school from school_student_planning p join student_registry_records s on s.organisation_id=p.organisation_id and s.external_key=p.student_key and s.archived_at is null join organisations o on o.id=p.organisation_id where p.organisation_id=$1 and p.student_key=$2 and p.id=$3",[org,key,url.searchParams.get('id')])
