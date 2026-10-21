@@ -176,3 +176,8 @@ Deployment `dpl_C5HxsEy9rqeDe8DVKuZQ5szpi9DS` is ready and aliased to `https://m
 - Production build, lint and the expanded planning HTTP regression passed. Synthetic regression fixtures check comparison privacy, stale/revoked approval, archive state, student scope, filtered workload totals, session periods and exclusion of private text. Fixtures were cleaned.
 
 Google sign-in succeeded on 20 October after fixing expired OAuth redirects (commit dade299). The signed-in owner created only the synthetic student 97cc5c0a-c2ef-4a53-ac59-b7913605ca12, saved a primary pathway and an action plan, and downloaded an approved summary. The downloaded file included the approved summary and excluded its internal-note sentinel. The browser connection is unavailable on 21 October; outcome/task/calendar/intervention/report responsive checks and visual validation of this new comparison UI remain pending. No new sender/provider configuration has been supplied. The full original specification remains incomplete as recorded above.
+
+
+Synthetic browser fixture cleanup on 21 October: student 97cc5c0a-c2ef-4a53-ac59-b7913605ca12 was soft-archived with its two planning records and audit/history preserved. The transaction confirmed every other registry row was unchanged. No real student record was edited.
+
+Production deployment dpl_DGr64mygr3qUkZJ1QhvPZ5Vnwyz6 is READY and aliased to https://manyfolds.vercel.app from code commit 41c2f2a. The first deployment attempt returned Not authorized; an explicit Manyfolds team scope succeeded without changing account permissions. Live health and planning SPA checks returned 200; unauthenticated comparison POST and reporting GET returned 401. Authenticated visual checks of these refinements remain pending the browser connection.
