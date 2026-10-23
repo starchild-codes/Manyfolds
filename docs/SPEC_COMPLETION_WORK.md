@@ -76,3 +76,5 @@ Applied 20261023_leadership_notes.sql after a rolled-back DDL verification. It a
 The current Windows Computer Use helper could not connect, so signed-in visual verification remains pending. Domain and email provider/sender activation are still not supplied; the user plans to purchase a domain soon. Other remaining original-spec and verified-data coverage work stays open.
 
 The existing test:guidance suite also passed after this change, covering completion gates, assignments, briefings, private notes, approved exports, conflict handling and school isolation.
+
+Leadership-note production deployment dpl_Dcdrtqe9LcLThAySE9Z6pXDP1Ujz is READY and aliased to https://manyfolds.vercel.app from code commit 2254846. Vercel passed its production build. Live health and the sessions SPA returned 200; the new leadership-note endpoint returned 401 without authentication. Signed-in UI verification remains pending the desktop connection.
