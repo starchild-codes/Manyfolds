@@ -4,6 +4,7 @@ import type { Pool } from 'pg'
 import type { AuthContext } from '../ai/types.ts'
 import { checkedDatabaseClient,readDatabase } from '../database.ts'
 import { blankSession,hasSessionOutcome,SessionError,validateSession } from './sessionSchema.ts'
+import {canLeadershipNote} from './leadershipNotes.ts'
 import {checkAssignee} from './tasks.ts'
 import {checkStaffBooking} from './calendar.ts'
 
@@ -47,7 +48,7 @@ export async function handleSessionRequest(req:IncomingMessage,res:ServerRespons
    send(res,200,{document,studentName:activity.rows[0].student_name,schoolName:activity.rows[0].school_name,sessionDate:activity.rows[0].scheduled_at,generatedAt:new Date().toISOString()});return true
   }
   const note=canCounsel(auth.role)?await readDatabase(pool,'select body,version,updated_at from guidance_session_private_notes where organisation_id=$1 and activity_id=$2 and author_id=$3',[org,id,auth.userId]):{rows:[]}
-  send(res,200,{canPrivate:canCounsel(auth.role),activity:{...activity.rows[0],mine:activity.rows[0].assigned_to===auth.userId},record:result.rows[0]||{details:blankSession(),version:0},note:note.rows[0]||{body:'',version:0}});return true
+  send(res,200,{canLeadershipNote:canLeadershipNote(auth.role),canPrivate:canCounsel(auth.role),activity:{...activity.rows[0],mine:activity.rows[0].assigned_to===auth.userId},record:result.rows[0]||{details:blankSession(),version:0},note:note.rows[0]||{body:'',version:0}});return true
  }
  if(req.method!=='PUT'||url.pathname==='/session-export')throw new SessionError('Method not allowed.',405)
  const input=await bodyOf(req),expected=version(input.version)

@@ -4,6 +4,7 @@ import { attachDatabasePool, getDatabasePool, checkedDatabaseClient } from '../d
 import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { authenticateRoadmapRequest, AuthenticationError } from '../ai/auth.ts'
 import { createAiConfig } from '../ai/config.ts'
+import {leadershipNoteRequest} from './leadershipNotes.ts'
 import { handleSessionRequest } from './sessions.ts'
 import { hasSessionOutcome,SessionError } from './sessionSchema.ts'
 import {taskRequest,checkAssignee,checkTaskLinks} from './tasks.ts'
@@ -52,6 +53,7 @@ export function guidanceApi(env:Record<string,string|undefined>,authenticate:typ
         assertAreaAccess(auth,'guidance',url.pathname,req.method||'GET')
         if(await calendarRequest(req,res,pool,auth,url))return
         if(await taskRequest(req,res,pool,auth,url))return
+        if(await leadershipNoteRequest(req,res,pool,auth,url))return
         if(await handleSessionRequest(req,res,pool,auth,url))return
         if(url.pathname!=='/')return reply(res,404,{error:'Guidance endpoint not found.'})
         const present=(row:Record<string,unknown>)=>({...row,mine:row.assigned_to===auth.userId})

@@ -12,7 +12,8 @@ Started 20 October 2026. This is an implementation tracker, not a readiness clai
 - [x] Audit six current DGT CTS vocational qualification listings and publish 36 exact field claims; add six exact scholarship deadline claims and recheck existing pilot/NSP listings
 - [x] Implement explicitly requested staff-invitation SMTP delivery and server-only delivery ledger; test with a mock transport
 - [x] Implement fourteen-stage pipeline board/table, cohort filters, validated atomic bulk moves, reasons/overrides, suggestions, label configuration and scoped stage history; visual browser verification remains pending
-- [ ] Complete remaining original-spec details: full overview/filter/import matrix, leadership note category, dedicated consent/deadline documents, public/support pages, broader structured resources and all notification event types
+- [x] Add separate school-leadership session notes with scoped RLS, version conflicts, read-only revision history and content-free read/save audit events
+- [ ] Complete remaining original-spec details: full overview/filter/import matrix, dedicated consent/deadline documents, public/support pages, broader structured resources and all notification event types
 - [ ] Expand verified institution/programme/fee/benefit/recognition/relationship coverage beyond the current pilot; do not describe a small launch catalogue as national coverage
 - [ ] Activate the actual verified mail sender, apply auth templates and complete fresh-account/recovery/invitation inbox tests
 - [x] Expand the regression runner to 24 groups, pass build/lint and deploy the code to the Manyfolds project
@@ -62,3 +63,16 @@ Browser inventory on 21 October still contains no connected browser. Authenticat
 Pipeline release checks: npm run build, npm run lint, npm run test:pipeline, npm run test:planning and npm run test:operations passed on 21 October. The final pipeline regression also verifies that a projected data-entry name/class save preserves the canonical stage and internal sentinel while returning no internal sentinel. All synthetic fixtures were cleaned. No real school student stages or labels were changed.
 
 Pipeline production deployment dpl_9mruZtdn9JTjHRdn1ATErV3Z2Hmk is READY at https://manyfolds.vercel.app from code commit 878a820. Vercel also passed the current production build. Live health and the pipeline SPA returned 200; pipeline, label and history APIs returned 401 without authentication. The regression runner now includes 25 groups, but this increment ran only the affected pipeline/planning/operations suites, build and lint.
+
+
+## 23 October leadership note category
+
+Added an explicit school-leadership note area for session records. Only owners, administrators and lead counsellors with access to the student can read or save this separate category. Counsellors, guidance teachers, class teachers, data-entry staff, reviewers and other schools are denied by the API and table RLS. Existing author-private notes remain author-only, including against owners and administrators. No previous note was reclassified or exposed.
+
+Leadership notes have saved-state feedback, stale-version conflict protection, unsaved-change navigation/close guards and read-only historical revisions. Reads and saves create audit events containing record/version metadata, never note text. They do not enter session/guardian/action/internal exports, briefing data, search, reports or timelines. AI input assembly was not changed and does not query these new tables.
+
+Applied 20261023_leadership_notes.sql after a rolled-back DDL verification. It adds only new restricted note/history tables and their audit/history trigger; real student/session records were not edited. Added test:leadership-notes to the release runner, bringing it to 26 groups. The targeted note regression passed API and direct-RLS role/school boundaries, suspended-school isolation, revision immutability, stale writes, archive protection, content-free audits, export/search/report/briefing/timeline exclusion and unchanged author-private isolation. Its synthetic school fixtures were cleaned. Build and lint passed. The complete 26-group sweep has not been rerun for this increment.
+
+The current Windows Computer Use helper could not connect, so signed-in visual verification remains pending. Domain and email provider/sender activation are still not supplied; the user plans to purchase a domain soon. Other remaining original-spec and verified-data coverage work stays open.
+
+The existing test:guidance suite also passed after this change, covering completion gates, assignments, briefings, private notes, approved exports, conflict handling and school isolation.
