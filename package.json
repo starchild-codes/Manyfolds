@@ -53,7 +53,8 @@
     "data:vocational:publish": "node scripts/import-dgt-cts.mjs --apply",
     "test:platform": "node --experimental-strip-types scripts/platform-administration-test.mjs",
     "test:pipeline": "node --experimental-strip-types scripts/pipeline-workflow-test.mjs",
-    "test:leadership-notes": "node --experimental-strip-types scripts/leadership-notes-test.mjs"
+    "test:leadership-notes": "node --experimental-strip-types scripts/leadership-notes-test.mjs",
+    "test:sharing": "node --experimental-strip-types scripts/student-sharing-test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0",

@@ -1,0 +1,1 @@
+export const resourceTypes=['guide','session_template','question_bank','worksheet','parent_discussion_guide','stream_selection_guide','vocational_pathway_guide','scholarship_checklist','exam_checklist','career_exploration_activity','referral_guide','ethical_boundary_guide','checklist'] as const

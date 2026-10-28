@@ -1354,3 +1354,5 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+.manyfolds-footer nav{display:flex;flex-wrap:wrap;gap:14px;grid-column:1/-1;grid-row:2}.manyfolds-footer nav a{color:inherit;font-size:13px;text-underline-offset:4px}

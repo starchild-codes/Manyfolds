@@ -1,3 +1,4 @@
+import TodayGuidanceSummary from './TodayGuidanceSummary'
 const StudentPlanning=lazy(()=>import('./StudentPlanning'))
 import {guidanceStaff,counsellingStaff} from './staffRoles'
 const LimitedStaffWorkspace=lazy(()=>import('./LimitedStaffWorkspace'))
@@ -11,6 +12,8 @@ import { supabase } from './supabaseClient'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import Landing from './Landing'
+import PublicPages from './PublicPages'
+import {publicPages} from './publicContent'
 import KnowledgeDatabase from './KnowledgeDatabase'
 const AcceptInvitation=lazy(()=>import('./SchoolWorkflows').then(module=>({default:module.AcceptInvitation})))
 const SchoolAdministration=lazy(()=>import('./SchoolWorkflows').then(module=>({default:module.SchoolAdministration})))
@@ -63,6 +66,7 @@ export default function App() {
   useEffect(()=>{const handler=()=>setRoute(window.location.pathname);window.addEventListener('popstate',handler);return()=>window.removeEventListener('popstate',handler)},[])
   if(route==='/'&&authRedirectError(window.location.search,window.location.hash))return <AuthCallback/>
   if(route === '/') return <Landing openDashboard={()=>{window.history.pushState({},'', '/auth');setRoute('/auth')}}/>
+  if(Object.hasOwn(publicPages,route))return <PublicPages path={route as keyof typeof publicPages}/>
   if(route === '/auth') return <SignIn />
   if(route === '/auth/callback') return <AuthCallback />
   if(/^\/invite\/[a-f0-9]{64}$/.test(route)) return <ProtectedWorkspace><AcceptInvitation token={route.split('/')[2]}/></ProtectedWorkspace>
@@ -173,6 +177,7 @@ function Dashboard({ students, loading, canEdit, classes, onOpen, onNew, navigat
       <Metric number={String(priority.length)} label="Need attention" note="Flagged student records" warn />
       <Metric number={String(incomplete.length)} label="Pathway not set" note="In the student register" />
     </section>}
+    {!loading&&<TodayGuidanceSummary navigate={navigate}/>}
     {!loading && <section className="two-col">
       <div className="panel priority"><div className="panel-heading"><div><p className="eyebrow">Student activity</p><h2>{priority.length ? 'Students needing attention' : 'Guidance in good order'}</h2></div></div>
         {priority.length ? priority.map(s => <button className="priority-row" key={s.id} onClick={() => onOpen(s)}><Avatar initials={s.initials}/><div className="grow"><b>{s.name}</b><small>{s.grade}</small><span className="reason">{s.priority}</span></div></button>) : <EmptyState compact title={students.length ? 'No flagged records' : 'Start your student register'} description={students.length ? 'Student records needing attention will appear here.' : 'Add a student to keep guidance and follow-ups together.'} action={!students.length&&canEdit&&<button className="secondary" onClick={onNew}>Add first student</button>} />}

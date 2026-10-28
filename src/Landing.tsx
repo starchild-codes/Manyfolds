@@ -143,8 +143,8 @@ export default function Landing({ openDashboard }: { openDashboard: () => void }
           <Wordmark />
         </a>
         <nav aria-label="Main navigation">
-          <a href="#how">How it works</a>
-          <a href="#counsellors">For counsellors</a>
+          <a href="/for-schools">For schools</a><a href="/how-it-works">How it works</a>
+          <a href="/for-counsellors">For counsellors</a><a href="/contact">Contact / Demo</a>
         </nav>
         <button type="button" className="nav-sign-in" onClick={openDashboard}>
           Sign in
@@ -268,7 +268,7 @@ export default function Landing({ openDashboard }: { openDashboard: () => void }
 
       <footer className="manyfolds-footer">
         <Wordmark />
-        <p>More than one interest. More than one way forward.</p>
+        <p>More than one interest. More than one way forward.</p><nav aria-label="More about Manyfolds"><a href="/impact">Impact</a><a href="/resources">Resources</a><a href="/privacy">Privacy and data safety</a><a href="/contact">Contact</a></nav>
         <button type="button" onClick={openDashboard}>
           For counsellors
         </button>

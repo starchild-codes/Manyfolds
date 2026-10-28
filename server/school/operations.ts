@@ -16,6 +16,9 @@ import {reportingRequest} from './reporting.ts'
 import {notificationRequest} from './notifications.ts'
 import {emailRequest} from './email.ts'
 import {pipelineRequest} from './pipeline.ts'
+import {resourceTypes} from './resourceTypes.ts'
+import {caseSummaryRequest} from './caseSummary.ts'
+import {sharingRequest} from './sharing.ts'
 import {searchRequest} from './search.ts'
 
 class OperationError extends Error {readonly statusCode:number;constructor(message:string,statusCode=400){super(message);this.statusCode=statusCode}}
@@ -31,9 +34,12 @@ const audit=async(db:PoolClient,org:string,actor:string,event:string,subject?:st
 export function schoolOperationsApi(env:Record<string,string|undefined>,authenticate:typeof authenticateRoadmapRequest=authenticateRoadmapRequest):Plugin{
  const config=createAiConfig(env),pool=getDatabasePool(config.databaseUrl)
  const mount=(server:ViteDevServer|PreviewServer)=>{
-  server.middlewares.use('/api/operations',async(req,res)=>{try{
+  server.middlewares.use('/api/operations',async(req,res)=>{let operationAuth:Awaited<ReturnType<typeof authenticate>>|null=null;try{
    const auth=await authenticate(req,pool,config,'operations'),url=new URL(req.url||'/','http://localhost'),path=url.pathname
+   operationAuth=auth
    assertAreaAccess(auth,'operations',path,req.method||'GET')
+   if(await caseSummaryRequest(req,res,pool,auth,url))return
+   if(await sharingRequest(req,res,pool,auth,url))return
    if(await pipelineRequest(req,res,pool,auth,url))return
    if(await staffAccessRequest(req,res,pool,auth,url))return
    if(await planningRequest(req,res,pool,auth,url))return
@@ -54,7 +60,7 @@ export function schoolOperationsApi(env:Record<string,string|undefined>,authenti
      const key=url.searchParams.get('student')||'',revision=url.searchParams.get('revision');if(revision!==null&&(!/^\d+$/.test(revision)||Number(revision)<1))throw new OperationError('Choose a valid saved revision.')
      const student=await readDatabase(pool,'select archived_at from student_registry_records where organisation_id=$1 and external_key=$2',[auth.organisationId,key]);if(!student.rowCount)throw new OperationError('Student is unavailable in your school.',404)
      const current=await readDatabase(pool,'select details,version,updated_at from student_guidance_profiles where organisation_id=$1 and student_key=$2',[auth.organisationId,key]);let record=current.rows[0]||{details:blankStudentProfile(),version:0};if(revision&&Number(revision)!==record.version){const old=await readDatabase(pool,'select details,version,updated_at from student_guidance_profile_history where organisation_id=$1 and student_key=$2 and version=$3',[auth.organisationId,key,Number(revision)]);if(!old.rowCount)throw new OperationError('Saved revision not found.',404);record=old.rows[0]}
-     const history=await readDatabase(pool,'select version,updated_at from student_guidance_profile_history where organisation_id=$1 and student_key=$2 order by version desc limit 50',[auth.organisationId,key]);return reply(res,200,{record,history:history.rows,latestVersion:current.rows[0]?.version||0,archived:Boolean(student.rows[0].archived_at)})
+     const history=await readDatabase(pool,'select version,updated_at from student_guidance_profile_history where organisation_id=$1 and student_key=$2 order by version desc limit 50',[auth.organisationId,key]);return reply(res,200,{record:{...record,details:{...blankStudentProfile(),...record.details}},history:history.rows,latestVersion:current.rows[0]?.version||0,archived:Boolean(student.rows[0].archived_at)})
     }
     if(path==='/private-notes'){if(!writer)throw new OperationError('Private notes are available only to counselling staff.',403);const key=url.searchParams.get('student')||'';const result=await readDatabase(pool,'select body,version,updated_at from student_private_notes where organisation_id=$1 and student_key=$2 and author_id=$3',[auth.organisationId,key,auth.userId]);return reply(res,200,{record:result.rows[0]||{body:'',version:0}})}
     if(path==='/staff-directory'){const result=await readDatabase(pool,`select m.user_id,coalesce(nullif(u.raw_user_meta_data->>'display_name',''),nullif(u.raw_user_meta_data->>'full_name',''),u.email) name from organisation_memberships m join auth.users u on u.id=m.user_id where m.organisation_id=$1 and m.active and m.role in('owner','admin','lead_counsellor','counsellor','guidance_teacher') order by name`,[auth.organisationId]);return reply(res,200,{records:result.rows})}
@@ -121,7 +127,7 @@ export function schoolOperationsApi(env:Record<string,string|undefined>,authenti
      const result=await db.query('insert into school_configuration(organisation_id,settings,updated_by) values($1,$2,$3) on conflict(organisation_id) do update set settings=excluded.settings,updated_by=excluded.updated_by,version=school_configuration.version+1,updated_at=now() returning settings,version,updated_at',[auth.organisationId,settings,auth.userId]);await db.query('commit');return reply(res,200,{configuration:result.rows[0]})
     }
     if(path==='/resources'&&(req.method==='POST'||req.method==='PATCH')){
-     const title=text(body.title),content=text(body.body,20000),type=text(body.resourceType,50);if(!uuid(body.id)||!title||!content||!['guide','worksheet','session_template','checklist','referral_guide'].includes(type))throw new OperationError('Provide a title, resource type and resource content.')
+     const title=text(body.title),content=text(body.body,20000),type=text(body.resourceType,50);if(!uuid(body.id)||!title||!content||!(resourceTypes as readonly string[]).includes(type))throw new OperationError('Provide a title, resource type and resource content.')
      let saved
      if(req.method==='POST'){saved=await db.query('insert into school_resources(id,organisation_id,title,resource_type,body,created_by,updated_by) values($1,$2,$3,$4,$5,$6,$6) on conflict(id) do nothing returning *',[body.id,auth.organisationId,title,type,content,auth.userId]);if(!saved.rowCount)saved=await db.query('select * from school_resources where id=$1 and organisation_id=$2 and created_by=$3 and title=$4 and resource_type=$5 and body=$6',[body.id,auth.organisationId,auth.userId,title,type,content]);if(!saved.rowCount)throw new OperationError('Resource request already used. Reload before saving.',409)}
      else{if(!Number.isSafeInteger(body.version))throw new OperationError('A current resource version is required.');saved=await db.query('update school_resources set title=$4,resource_type=$5,body=$6,updated_by=$7,updated_at=now(),version=version+1 where id=$1 and organisation_id=$2 and version=$3 returning *',[body.id,auth.organisationId,body.version,title,type,content,auth.userId]);if(!saved.rowCount)throw new OperationError('This resource changed elsewhere. Reload before saving.',409)}
@@ -163,7 +169,7 @@ export function schoolOperationsApi(env:Record<string,string|undefined>,authenti
     if(path==='/export-log'&&req.method==='POST'){const kind=text(body.kind,50);if(!['student_summary','guidance_report','student_roster','roadmap_checklist'].includes(kind))throw new OperationError('Export type is invalid.');await audit(db,auth.organisationId,auth.userId,`export.${kind}`);await db.query('commit');return reply(res,200,{ok:true})}
     throw new OperationError('School operation endpoint not found.',404)
    }catch(error){await db.query('rollback');throw error}finally{db.release()}
-  }catch(error){const known=error instanceof PlanningError||error instanceof OperationError||error instanceof AccessError || error instanceof AuthenticationError||error instanceof ProfileValidationError||error instanceof SavedPathError;if(!known)console.error('School operation failure code:',(error as {code?:string}).code||'unknown',(error as Error).stack?.split('\n').slice(1,4).join('\n'));return reply(res,known?error.statusCode:503,{error:known?error.message:'Could not confirm this operation. Reload before retrying.'})}})
+  }catch(error){if(operationAuth&&['/imports','/imports/preview'].includes((req.url||'').split('?')[0])&&[400,409].includes(Number((error as {statusCode?:number}).statusCode))){try{await pool.query("insert into school_audit_events(organisation_id,event_type,actor_id,metadata) values($1,'import.failed',$2,$3)",[operationAuth.organisationId,operationAuth.userId,{operation:(req.url||'').split('?')[0],status:(error as {statusCode?:number}).statusCode}])}catch{/* Keep the original import error. */}}const known=error instanceof PlanningError||error instanceof OperationError||error instanceof AccessError || error instanceof AuthenticationError||error instanceof ProfileValidationError||error instanceof SavedPathError;if(!known)console.error('School operation failure code:',(error as {code?:string}).code||'unknown',(error as Error).stack?.split('\n').slice(1,4).join('\n'));return reply(res,known?error.statusCode:503,{error:known?error.message:'Could not confirm this operation. Reload before retrying.'})}})
   attachDatabasePool(pool,server.httpServer)
  }
  return {name:'manyfolds-operations-api',configureServer:mount,configurePreviewServer:mount}

@@ -1,0 +1,9 @@
+﻿import {useEffect} from 'react'
+import {downloadPrintable} from './printDocument'
+import './PublicPages.css'
+import {contact,publicPages,worksheets} from './publicContent'
+export default function PublicPages({path}:{path:keyof typeof publicPages}){
+ const page=publicPages[path]
+ useEffect(()=>{document.title=page.title+' | Manyfolds';return()=>{document.title='Manyfolds | More Than One Way Forward'}},[page.title])
+ return <div className="manyfolds-public"><a className="public-skip" href="#public-content">Skip to content</a><header><a href="/" className="public-brand">manyfolds</a><a className="public-login" href="/auth">Staff login</a></header><nav aria-label="Public pages">{Object.entries(publicPages).map(([href,p])=><a key={href} href={href} aria-current={href===path?'page':undefined}>{p.title}</a>)}</nav><main id="public-content"><p className="eyebrow">More than one way forward</p><h1>{page.title}</h1><p className="public-intro">{page.intro}</p>{page.sections.map(([title,text])=><section key={title}><h2>{title}</h2><p>{text}</p></section>)}{path==='/contact'&&<a className="public-login" href={'mailto:'+contact+'?subject=Manyfolds%20school%20demo%20request'}>Email Manyfolds</a>}{path==='/resources'&&<section><h2>Download a printable worksheet</h2>{worksheets.map(w=><article key={w.title}><h3>{w.title}</h3><button onClick={()=>downloadPrintable({title:w.title,classification:'GUIDANCE WORKSHEET - FOR STAFF-MEDIATED DISCUSSION',metadata:{Publisher:'Manyfolds',Generated:new Date().toISOString()},sections:w.prompts.map((p,i)=>({title:(i+1)+'. '+p,body:'Discussion notes: __________________________________________________\n________________________________________________________________'}))},w.title.toLowerCase().replaceAll(' ','-')+'.html')}>Download / Print</button></article>)}</section>}</main><footer><a href="/privacy">Privacy and data safety</a><a href={'mailto:'+contact}>{contact}</a><a href="/auth">Staff login</a></footer></div>
+}
