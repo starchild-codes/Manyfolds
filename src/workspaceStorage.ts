@@ -1,4 +1,15 @@
 let activeOrganisationId: string | null = null
+let activeUserId: string | null = null
+
+export function setWorkspaceIdentity(userId: string | null) {
+  if (userId !== activeUserId) activeOrganisationId = null
+  activeUserId = userId
+}
+
+export function privateStorageKey(key: string) {
+  if (!activeUserId) throw new Error('Sign in before accessing private local data.')
+  return `${scopedStorageKey(key)}-user-${activeUserId}`
+}
 
 export function setWorkspaceScope(organisationId: string | null) {
   activeOrganisationId = organisationId

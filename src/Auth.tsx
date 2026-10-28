@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react'
+import { setWorkspaceIdentity } from './workspaceStorage'
 import { supabase } from './supabaseClient'
 import './Auth.css'
 import { authRedirectError,authErrorMessage,withAuthTimeout } from './authErrors'
@@ -270,7 +271,7 @@ export function AuthCallback() {
 
 export function ProtectedWorkspace({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
-  const [signedIn, setSignedIn] = useState(false)
+  const [userId, setUserId] = useState<string|null>(null)
   const [sessionCheckError, setSessionCheckError] = useState('')
 
   useEffect(() => {
@@ -283,7 +284,8 @@ export function ProtectedWorkspace({ children }: { children: React.ReactNode }) 
     void withAuthTimeout(supabase.auth.getSession()).then(({ data, error }) => {
       if (!active || authResolved) return
       if (error) throw error
-      setSignedIn(Boolean(data.session))
+      setWorkspaceIdentity(data.session?.user.id||null)
+      setUserId(data.session?.user.id||null)
       setReady(true)
     }).catch(error => {
       if (!active || authResolved) return
@@ -296,7 +298,8 @@ export function ProtectedWorkspace({ children }: { children: React.ReactNode }) 
       if (!active) return
       authResolved = true
       setSessionCheckError('')
-      setSignedIn(Boolean(session))
+      setWorkspaceIdentity(session?.user.id||null)
+      setUserId(session?.user.id||null)
       setReady(true)
     })
     return () => { active = false; subscription.unsubscribe() }
@@ -315,5 +318,5 @@ export function ProtectedWorkspace({ children }: { children: React.ReactNode }) 
   }
 
   if (sessionCheckError) return <main className="auth-page auth-callback"><section className="auth-card"><p className="eyebrow">Manyfolds</p><h2>Could not check your session</h2><p role="alert">{sessionCheckError}</p><button className="email-button" onClick={() => window.location.reload()}>Retry session check</button></section></main>
-  return signedIn ? children : <SignIn />
+  return userId ? <Fragment key={userId}>{children}</Fragment> : <SignIn />
 }

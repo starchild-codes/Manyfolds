@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test:onboarding": "node --experimental-strip-types scripts/onboarding-isolation-test.mjs",
     "test:release": "node scripts/release-sweep.mjs",
     "test:journey": "node --experimental-strip-types scripts/student-journey-test.mjs",
     "email:check": "node scripts/configure-auth-email.mjs",

@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-const checks = ['test','test:staff-access','test:planning','test:pipeline','test:leadership-notes','test:tasks-calendar','test:email','test:platform','test:journey','test:students','test:school','test:operations','test:guidance','test:saved-pathways','test:roadmap-review','test:roadmap-generation','test:model-refresh','test:research','test:roadmap-evidence','test:verification-workspace','test:evaluation-persistence','test:scholarship-parser','test:rls','test:production','test:vercel','test:production-package']
+const checks = ['test','test:onboarding','test:staff-access','test:planning','test:pipeline','test:leadership-notes','test:tasks-calendar','test:email','test:platform','test:journey','test:students','test:school','test:operations','test:guidance','test:saved-pathways','test:roadmap-review','test:roadmap-generation','test:model-refresh','test:research','test:roadmap-evidence','test:verification-workspace','test:evaluation-persistence','test:scholarship-parser','test:rls','test:production','test:vercel','test:production-package']
 await mkdir('output/qa',{recursive:true})
 const rerunFailed=process.argv.includes('--rerun-failed')
 const previous=rerunFailed?JSON.parse(await readFile('output/qa/release-sweep.json','utf8')):null

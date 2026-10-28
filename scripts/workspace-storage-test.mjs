@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { scopedStorageKey, setWorkspaceScope } from '../src/workspaceStorage.ts'
+import { scopedStorageKey, setWorkspaceScope, setWorkspaceIdentity, privateStorageKey } from '../src/workspaceStorage.ts'
 
 setWorkspaceScope(null)
 assert.throws(() => scopedStorageKey('cc-student-roadmap-v1'))
@@ -10,4 +10,13 @@ const second = scopedStorageKey('cc-student-roadmap-v1')
 assert.notEqual(first, second)
 assert.equal(scopedStorageKey('cc-saved-pathways-v1'), 'cc-org-school-b-cc-saved-pathways-v1')
 setWorkspaceScope(null)
+setWorkspaceIdentity('account-a')
+setWorkspaceScope('shared-school')
+const privateA=privateStorageKey('private-drafts')
+setWorkspaceIdentity('account-b')
+assert.throws(()=>scopedStorageKey('private-drafts'),'Account changes must invalidate the previous school scope')
+setWorkspaceScope('shared-school')
+assert.notEqual(privateA,privateStorageKey('private-drafts'),'Invited staff in one school still have separate private browser drafts')
+setWorkspaceIdentity(null)
+assert.throws(()=>privateStorageKey('private-drafts'))
 console.log('Workspace browser storage isolation passed')
