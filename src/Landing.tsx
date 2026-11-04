@@ -1,4 +1,12 @@
+import { useEffect, useState } from 'react'
 import './ManyfoldsLanding.css'
+
+const introSeenKey = 'manyfolds:brand-intro:v1'
+
+function shouldShowIntro() {
+  if (typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
+  try { return window.sessionStorage.getItem(introSeenKey) !== 'seen' } catch { return true }
+}
 
 const interestExamples = [
   ['Psychology + computing', 'People, behaviour, and technology.'],
@@ -105,9 +113,38 @@ function PossibilityMap() {
 }
 
 export default function Landing({ openDashboard }: { openDashboard: () => void }) {
+  const [showOpening, setShowOpening] = useState(shouldShowIntro)
+
+  useEffect(() => {
+    if (!showOpening) return
+    try { window.sessionStorage.setItem(introSeenKey, 'seen') } catch { /* Storage is optional for this decorative intro. */ }
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const dismiss = () => setShowOpening(false)
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') dismiss() }
+    const onMotion = () => { if (motion.matches) dismiss() }
+    onMotion()
+    const timer = window.setTimeout(dismiss, 1750)
+    window.addEventListener('keydown', onKey)
+    motion.addEventListener('change', onMotion)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('keydown', onKey)
+      motion.removeEventListener('change', onMotion)
+    }
+  }, [showOpening])
 
   return (
-    <div className="manyfolds-landing">
+    <div className="manyfolds-landing" onFocusCapture={event => {
+      if (showOpening && !(event.target as HTMLElement).closest('.manyfolds-opening')) setShowOpening(false)
+    }}>
+      {showOpening && <div className="manyfolds-opening" aria-label="Manyfolds opening animation">
+        <div className="opening-stage" aria-hidden="true">
+          <FoldMark large />
+          <div><Wordmark withMark={false} /><p>possibilities, unfolded.</p></div>
+        </div>
+        <div className="opening-paths" aria-hidden="true"><i /><i /><i /></div>
+        <button type="button" className="opening-skip" onClick={() => setShowOpening(false)}>Skip animation <span aria-hidden="true">↗</span></button>
+      </div>}
       <a className="landing-skip" href="#main-content">Skip to content</a>
       <header className="manyfolds-nav">
         <a href="/" className="wordmark-link">
