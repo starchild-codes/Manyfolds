@@ -37,6 +37,7 @@ export async function planningRequest(req:IncomingMessage,res:ServerResponse,poo
    select id::text id,kind type,title,scheduled_at happened_at,status from guidance_activities where organisation_id=$1 and student_key=$2
    union all select id::text,'diagnostic','Career diagnostic saved',created_at,status from student_diagnostic_history where organisation_id=$1 and student_key=$2
    union all select id::text,'ai_roadmap',roadmap->>'roadmap_title',updated_at,status from roadmap_generations where organisation_id=$1 and student_external_id=$2
+   union all select id::text,'ug_application',concat(payload->>'institution',' / ',payload->>'programme'),updated_at,payload->>'status' from school_ug_applications where organisation_id=$1 and student_key=$2
    union all select id::text,kind,payload->>'title',updated_at,payload->>'status' from school_student_planning where organisation_id=$1 and student_key=$2
    union all select i.id::text,'intervention',i.title,i.scheduled_at,i.status from school_interventions i join school_intervention_students s on s.intervention_id=i.id where s.organisation_id=$1 and s.student_key=$2 and public.school_can_access_intervention(i.organisation_id,i.id,$3)
    union all select id::text,'teacher_observation','Teacher observation recorded',created_at,case when needs_attention then 'Attention requested' else 'Recorded' end from school_teacher_observations where organisation_id=$1 and student_key=$2

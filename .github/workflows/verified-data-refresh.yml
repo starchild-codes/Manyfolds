@@ -15,6 +15,7 @@ jobs:
     timeout-minutes: 15
     env:
       DATABASE_URL: ${{ secrets.MANYFOLDS_DATABASE_URL }}
+      SUPABASE_URL: https://apcorawxxgxyyemhptws.supabase.co
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,9 +28,12 @@ jobs:
         run: |
           npm run data:sources:check:apply
           npm run data:scholarships:stage:apply
-          node scripts/reverify-official-pilot.mjs --apply
+          npm run data:ug-pilot:apply
           node scripts/publish-reviewed-nsp-listings.mjs --apply
           npm run data:verified:coverage
+      - name: Refresh checked UG publisher links
+        if: env.DATABASE_URL != ''
+        run: npm run data:ug-sources:apply
       - name: Explain missing database connection
         if: env.DATABASE_URL == ''
         run: echo 'Set the MANYFOLDS_DATABASE_URL repository secret to enable the scheduled source refresh.'

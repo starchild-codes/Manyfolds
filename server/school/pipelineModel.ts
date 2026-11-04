@@ -16,7 +16,7 @@ export function pipelineRequirement(stage:PipelineStage,facts:PipelineFacts){
  if(stage==='initial_session_completed'&&!facts.completedSession)return 'Save a completed student session first.'
  if(stage==='pathways_shortlisted'&&!facts.activePathway)return 'Save an active student pathway first.'
  if(stage==='action_plan_active'&&!facts.activePlan)return 'Save an active action plan first.'
- if(['applications_in_progress','outcome_pending'].includes(stage)&&!facts.applicationActivity)return 'Record an examination-registration task or a course-application outcome first.'
+ if(['applications_in_progress','outcome_pending'].includes(stage)&&!facts.applicationActivity)return 'Save an active UG application, an examination-registration task or a course-application outcome first.'
  if(['outcome_recorded','alumni_follow_up'].includes(stage)&&!facts.outcome)return 'Record a student outcome first.'
  return ''
 }

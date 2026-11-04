@@ -1,3 +1,5 @@
+import {admissionsRequest} from './admissions.ts'
+import {AdmissionsError} from './admissionsSchema.ts'
 import {AccessError,assertStudentAccess,canGuide,canCounsel,assertAreaAccess} from '../access.ts'
 import { blankStudentProfile, validateStudentProfile, ProfileValidationError } from './profileSchema.ts'
 import { createHash, randomUUID } from 'node:crypto'
@@ -38,6 +40,7 @@ export function schoolOperationsApi(env:Record<string,string|undefined>,authenti
    const auth=await authenticate(req,pool,config,'operations'),url=new URL(req.url||'/','http://localhost'),path=url.pathname
    operationAuth=auth
    assertAreaAccess(auth,'operations',path,req.method||'GET')
+   if(await admissionsRequest(req,res,pool,auth,url))return
    if(await caseSummaryRequest(req,res,pool,auth,url))return
    if(await sharingRequest(req,res,pool,auth,url))return
    if(await pipelineRequest(req,res,pool,auth,url))return
@@ -169,7 +172,7 @@ export function schoolOperationsApi(env:Record<string,string|undefined>,authenti
     if(path==='/export-log'&&req.method==='POST'){const kind=text(body.kind,50);if(!['student_summary','guidance_report','student_roster','roadmap_checklist'].includes(kind))throw new OperationError('Export type is invalid.');await audit(db,auth.organisationId,auth.userId,`export.${kind}`);await db.query('commit');return reply(res,200,{ok:true})}
     throw new OperationError('School operation endpoint not found.',404)
    }catch(error){await db.query('rollback');throw error}finally{db.release()}
-  }catch(error){if(operationAuth&&['/imports','/imports/preview'].includes((req.url||'').split('?')[0])&&[400,409].includes(Number((error as {statusCode?:number}).statusCode))){try{await pool.query("insert into school_audit_events(organisation_id,event_type,actor_id,metadata) values($1,'import.failed',$2,$3)",[operationAuth.organisationId,operationAuth.userId,{operation:(req.url||'').split('?')[0],status:(error as {statusCode?:number}).statusCode}])}catch{/* Keep the original import error. */}}const known=error instanceof PlanningError||error instanceof OperationError||error instanceof AccessError || error instanceof AuthenticationError||error instanceof ProfileValidationError||error instanceof SavedPathError;if(!known)console.error('School operation failure code:',(error as {code?:string}).code||'unknown',(error as Error).stack?.split('\n').slice(1,4).join('\n'));return reply(res,known?error.statusCode:503,{error:known?error.message:'Could not confirm this operation. Reload before retrying.'})}})
+  }catch(error){if(operationAuth&&['/imports','/imports/preview'].includes((req.url||'').split('?')[0])&&[400,409].includes(Number((error as {statusCode?:number}).statusCode))){try{await pool.query("insert into school_audit_events(organisation_id,event_type,actor_id,metadata) values($1,'import.failed',$2,$3)",[operationAuth.organisationId,operationAuth.userId,{operation:(req.url||'').split('?')[0],status:(error as {statusCode?:number}).statusCode}])}catch{/* Keep the original import error. */}}const known=error instanceof AdmissionsError||error instanceof PlanningError||error instanceof OperationError||error instanceof AccessError || error instanceof AuthenticationError||error instanceof ProfileValidationError||error instanceof SavedPathError;if(!known)console.error('School operation failure code:',(error as {code?:string}).code||'unknown',(error as Error).stack?.split('\n').slice(1,4).join('\n'));return reply(res,known?error.statusCode:503,{error:known?error.message:'Could not confirm this operation. Reload before retrying.'})}})
   attachDatabasePool(pool,server.httpServer)
  }
  return {name:'manyfolds-operations-api',configureServer:mount,configurePreviewServer:mount}

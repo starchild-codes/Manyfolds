@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createClient } from '@supabase/supabase-js'
-import { attachDatabasePool, getDatabasePool, readDatabase, checkedDatabaseClient } from '../database.ts'
+import { attachDatabasePool, getDatabasePool, readDatabase, checkedDatabaseClient, connectionFailure } from '../database.ts'
 import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { createAiConfig } from '../ai/config.ts'
 import {validateSchoolSetup} from './onboarding.ts'
@@ -69,6 +69,6 @@ export function workspaceApi(env: Record<string, string | undefined>, authentica
       }catch(error){await db.query('rollback');throw error}finally{db.release()}
     }
     return respond(res,404,{error:'Workspace endpoint not found.'})
-  }catch(error){const status=(error as {status?:number}).status||(['ECONNRESET','ECONNREFUSED','ETIMEDOUT','EPIPE'].includes((error as {code?:string}).code||'')?503:500);return respond(res,status,{error:status<500&&error instanceof Error?error.message:'Your school workspace could not be loaded. Please try again.'})}});attachDatabasePool(pool,server.httpServer)}
+  }catch(error){const status=(error as {status?:number}).status||(connectionFailure(error)?503:500);return respond(res,status,{error:status<500&&error instanceof Error?error.message:'Your school workspace could not be loaded. Please try again.'})}});attachDatabasePool(pool,server.httpServer)}
   return {name:'manyfolds-workspace-api',configureServer:mount,configurePreviewServer:mount}
 }

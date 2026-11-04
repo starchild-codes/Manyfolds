@@ -1,0 +1,19 @@
+{
+ "scope":"Official publisher/source identity only. No programme offering, eligibility, fee, recognition, seat or date is established by a source-directory entry.",
+ "sources":[
+  {"id":"jee-main","title":"JEE Main official notices","publisher":"National Testing Agency","category":"Engineering","url":"https://jeemain.nta.nic.in/","identity":"Joint Entrance Examination (Main)"},
+  {"id":"jee-advanced","title":"JEE Advanced official notices","publisher":"JEE Advanced organising institute","category":"Engineering","url":"https://jeeadv.ac.in/","identity":"Joint Entrance Examination (Advanced)"},
+  {"id":"josaa","title":"JoSAA counselling and seat allocation","publisher":"Joint Seat Allocation Authority","category":"Engineering","url":"https://josaa.nic.in/","identity":"Joint Seat Allocation Authority"},
+  {"id":"neet-ug","title":"NEET UG official notices","publisher":"National Testing Agency","category":"Medicine","url":"https://neet.nta.nic.in/","identity":"NATIONAL ELIGIBILITY CUM ENTRANCE TEST"},
+  {"id":"mcc-ug","title":"MCC undergraduate counselling","publisher":"Medical Counselling Committee","category":"Medicine","url":"https://mcc.nic.in/ug-medical-counselling/","identity":"UG Medical Counselling"},
+  {"id":"cuet-ug","title":"CUET UG official notices","publisher":"National Testing Agency","category":"University admissions","url":"https://cuet.nta.nic.in/","identity":"COMMON UNIVERSITY ENTRANCE TEST"},
+  {"id":"delhi-university","title":"University of Delhi admissions","publisher":"University of Delhi","category":"University admissions","url":"https://admission.uod.ac.in/","identity":"UG Admissions"},
+  {"id":"clat-2027","title":"CLAT 2027 undergraduate instructions","publisher":"Consortium of National Law Universities","category":"Law","url":"https://clat2027.consortiumofnlus.ac.in/clat-2027/ug-instructions.html","identity":"CLAT 2027 UG Instructions"},
+  {"id":"nlsiu","title":"NLSIU admissions and programme links","publisher":"National Law School of India University","category":"Law and humanities","url":"https://www.nls.ac.in/admissions/","identity":"National Law School of India University"},
+  {"id":"nid","title":"NID admissions","publisher":"National Institute of Design","category":"Design","url":"https://admissions.nid.edu/NIDA2027/Default.aspx","identity":"National Institute of Design"},
+  {"id":"nift","title":"NIFT admissions and prospectus","publisher":"National Institute of Fashion Technology","category":"Design","url":"https://nift.ac.in/admissions","identity":"National Institute of Fashion Technology"},
+  {"id":"iiser","title":"IISER admissions","publisher":"IISER admissions","category":"Science","url":"https://www.iiseradmission.in/","identity":"IISER"},
+  {"id":"nest","title":"NEST official admission notices","publisher":"NEST organising institutions","category":"Science","url":"https://www.nestexam.in/","identity":"National Entrance Screening Test"},
+  {"id":"nata","title":"NATA architecture entrance notices","publisher":"Council of Architecture","category":"Architecture","url":"https://www.nata.in/index.html","identity":"National Aptitude Test"}
+ ]
+}

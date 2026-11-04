@@ -1,6 +1,6 @@
 import {AccessError,assertStudentAccess,rosterRoles,assertAreaAccess} from '../access.ts'
 import type { IncomingMessage } from 'node:http'
-import { attachDatabasePool, getDatabasePool, readDatabase, checkedDatabaseClient } from '../database.ts'
+import { attachDatabasePool, getDatabasePool, readDatabase, checkedDatabaseClient, connectionFailure } from '../database.ts'
 import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { authenticateRoadmapRequest, AuthenticationError } from '../ai/auth.ts'
 import { createAiConfig } from '../ai/config.ts'
@@ -129,7 +129,7 @@ export function studentsApi(env: Record<string, string | undefined>,authenticate
       } catch (error) {
         if ((error as {code?:string}).code === '23503') return json(res, 409, {error:'This student has guidance history and cannot be deleted.'})
         const known = error instanceof AccessError || error instanceof AuthenticationError || error instanceof StudentRequestError
-        return json(res, known ? error.statusCode : 500, { error: known ? error.message : 'Student record request failed.' })
+        return json(res, known ? error.statusCode : connectionFailure(error)?503:500, { error: known ? error.message : 'Student record request failed.' })
       }
     })
     attachDatabasePool(pool,server.httpServer)

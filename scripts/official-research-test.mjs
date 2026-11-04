@@ -3,7 +3,11 @@ import { loadEnv } from 'vite'
 import { Client } from 'pg'
 import { OfficialResearchService, officialResearchSources, researchSelection } from '../server/ai/research.ts'
 import { createAiConfig } from '../server/ai/config.ts'
-import { groundedResearchAnswers, selectionFromQuestion } from '../server/ai/researchAnswer.ts'
+import { groundedResearchAnswers, selectionFromQuestion,programmeFeeAnswerForCycle,feeSourceNeedsReview } from '../server/ai/researchAnswer.ts'
+assert.equal(feeSourceNeedsReview(new URL('https://www.nls.ac.in/programme/b-a-hons/'),'fees'),true)
+assert.equal(feeSourceNeedsReview(new URL('https://www.nls.ac.in/programme/b-a-hons/'),'dates'),false)
+assert.equal(programmeFeeAnswerForCycle({quote:'Synthetic tuition: AY 2026-27 INR 100. Admissions 2027.',sourceUrl:'https://example.edu'},2027),false)
+assert.equal(programmeFeeAnswerForCycle({quote:'Synthetic tuition: AY 2027-28 INR 100.',sourceUrl:'https://example.edu'},2027),true)
 const year = new Date().getUTCFullYear()
 assert.throws(() => researchSelection({ subject: 'https://127.0.0.1', topic: 'dates', cycle: year }))
 assert.throws(() => researchSelection({ subject: 'jee', topic: 'private student notes', cycle: year }))
@@ -19,7 +23,9 @@ for (const [question,subject,topic,cycle] of [
 ]) assert.deepEqual(selectionFromQuestion(question,year+1,year),{subject,topic,cycle})
 assert.throws(()=>selectionFromQuestion('When is the exam in 2027?',year,year),/Name one supported exam/)
 assert.throws(()=>selectionFromQuestion('When are JEE and NEET next year?',year,year),/Name one/)
-assert.throws(()=>selectionFromQuestion('When is JEE Advanced next year?',year,year),/currently supports/)
+assert.deepEqual(selectionFromQuestion('When is JEE Advanced next year?',year,year),{subject:'jee_advanced',topic:'dates',cycle:year+1})
+assert.deepEqual(selectionFromQuestion('NLSIU tuition fees next year?',year,year),{subject:'nlsiu',topic:'programme_fees',cycle:year+1})
+assert.deepEqual(selectionFromQuestion('When is JoSAA counselling next year?',year,year),{subject:'josaa',topic:'dates',cycle:year+1})
 assert.throws(()=>selectionFromQuestion('What are CUET PG fees next year?',year,year),/currently supports/)
 assert.throws(()=>selectionFromQuestion(`JEE Main dates in ${year} and ${year+1}?`,year,year),/one admission or exam year/)
 const annotation = (url, content = `Official ${year} examination schedule and important notice.`) => ({ type: 'url_citation', url_citation: { url, title: 'Official notice', content } })
@@ -76,7 +82,7 @@ try {
  await assert.rejects(service.search({ ...auth, role: 'teacher' }, selection), error => error.statusCode === 403)
  const result = await service.search(auth, {question:`When is JEE Main ${year}? PRIVATE-QUESTION-MARKER`,cycle:year})
  assert.equal(result.status, 'sources_found'); assert.equal(result.cached, false); assert.equal(calls, 1)
- assert.equal(result.answers[0].quote,officialQuote); assert.equal(result.answerVersion,2)
+ assert.equal(result.answers[0].quote,officialQuote); assert.equal(result.answerVersion,3)
  assert.ok(!JSON.stringify(result).includes('Untrusted generated prose'))
  const cached = await service.search(auth, selection)
  assert.equal(cached.cached, true); assert.equal(calls, 1)

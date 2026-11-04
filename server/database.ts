@@ -1,7 +1,7 @@
 import type { EventEmitter } from 'node:events'
 import { Pool, type PoolClient } from 'pg'
 
-const connectionFailure=(error:unknown)=>['ECONNRESET','ECONNREFUSED','ETIMEDOUT','EPIPE'].includes((error as {code?:string}).code||'')||/connection terminated|timeout/i.test(error instanceof Error?error.message:'')
+export const connectionFailure=(error:unknown)=>['ECONNRESET','ECONNREFUSED','ETIMEDOUT','EPIPE'].includes((error as {code?:string}).code||'')||/connection terminated|timeout|ECONNRESET|socket hang up/i.test(error instanceof Error?error.message:'')
 // Only retry acquiring/checking a connection, before any transaction or write starts.
 export async function checkedDatabaseClient(pool:Pool):Promise<PoolClient>{
  for(let attempt=0;attempt<2;attempt++){
@@ -12,7 +12,12 @@ export async function checkedDatabaseClient(pool:Pool):Promise<PoolClient>{
  throw new Error('Database connection unavailable.')
 }
 export async function readDatabase(pool:Pool|PoolClient,sql:string,values:unknown[]=[]){
- try{return await pool.query(sql,values)}catch(error){if(!connectionFailure(error))throw error;return pool.query(sql,values)}
+ // Retry only reads outside a transaction. A disconnected transaction client
+ // cannot be recovered by sending its query again on the same connection.
+ for(let attempt=0;attempt<3;attempt++){
+  try{return await pool.query(sql,values)}catch(error){if(!connectionFailure(error)||'release' in pool||attempt===2)throw error}
+ }
+ throw new Error('Database read could not complete.')
 }
 
 // Every API in a server process shares these connections.

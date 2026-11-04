@@ -30,7 +30,7 @@ export default function OfficialResearch({ canEdit }: { canEdit: boolean }) {
  return <section className="panel official-research" aria-labelledby="official-research-title">
   <p className="eyebrow">AI web research</p>
   <h2 id="official-research-title">Ask AI for the latest official details</h2>
-  <p>Ask about exam dates, deadlines, eligibility or application fees. AI searches official notices and links each answer to its source.</p>
+  <p>Ask about exam dates, deadlines, eligibility, application fees or published programme costs. AI searches official notices and links each answer to its source.</p>
   {!options && !error && <p role="status">Loading official research…</p>}
   {options && <>
    <form className="official-research-question" onSubmit={event => { event.preventDefault(); void search(true) }}>
@@ -40,7 +40,7 @@ export default function OfficialResearch({ canEdit }: { canEdit: boolean }) {
    <details className="official-research-choices"><summary>Or choose an exam, topic and year</summary>
    <div className="official-research-controls">
     <label>Exam or portal<select value={subject} disabled={busy} onChange={e => setSubject(e.target.value)}>{options.subjects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-    <label>Information<select value={topic} disabled={busy} onChange={e => setTopic(e.target.value)}><option value="dates">Dates and deadlines</option><option value="eligibility">Eligibility requirements</option><option value="fees">Application fees</option></select></label>
+    <label>Information<select value={topic} disabled={busy} onChange={e => setTopic(e.target.value)}><option value="dates">Dates and deadlines</option><option value="eligibility">Eligibility requirements</option><option value="fees">Application fees</option><option value="programme_fees">Programme tuition / hostel charges</option></select></label>
     <label>Admission / exam year<select value={cycle} disabled={busy} onChange={e => setCycle(Number(e.target.value))}>{[year - 1, year, year + 1].map(value => <option key={value}>{value}</option>)}</select></label>
     <button className="new" disabled={busy || !canEdit || !options.enabled} onClick={() => void search()}>{busy ? 'Finding an answer…' : 'Find answer'}</button>
    </div>
@@ -48,7 +48,7 @@ export default function OfficialResearch({ canEdit }: { canEdit: boolean }) {
    {!canEdit && <p>Your school’s counsellor can run a new search. Saved research is available below.</p>}
    <a href={options.subjects.find(item => item.id === subject)?.portal} target="_blank" rel="noreferrer">Open official portal ↗</a>
    </details>
-   {options.results.length > 0 && <details><summary>Recent school research</summary>{options.results.map(item => <p key={`${item.subject}-${item.topic}-${item.checkedAt}`}><button className="secondary" disabled={busy} onClick={() => { setResult(item); setError(''); setSubject(options.subjects.find(subject => subject.name === item.subject)?.id || 'jee'); setTopic(item.topic); setCycle(item.cycle) }}>{item.subject} · {item.cycle} · {item.topic === 'dates' ? 'Dates and deadlines' : item.topic === 'fees' ? 'Application fees' : 'Eligibility'}</button></p>)}</details>}
+   {options.results.length > 0 && <details><summary>Recent school research</summary>{options.results.map(item => <p key={`${item.subject}-${item.topic}-${item.checkedAt}`}><button className="secondary" disabled={busy} onClick={() => { setResult(item); setError(''); setSubject(options.subjects.find(subject => subject.name === item.subject)?.id || 'jee'); setTopic(item.topic); setCycle(item.cycle) }}>{item.subject} · {item.cycle} · {item.topic === 'dates' ? 'Dates and deadlines' : item.topic === 'fees' ? 'Application fees' : item.topic === 'programme_fees' ? 'Programme costs' : 'Eligibility'}</button></p>)}</details>}
   </>}
   {busy && <p role="status">Looking for current-cycle official notices. This may take up to 90 seconds.</p>}
   {error && <p role="alert" className="guidance-error">{error} <button className="secondary" disabled={busy} onClick={() => setAttempt(value => value + 1)}>Reload saved research</button></p>}
