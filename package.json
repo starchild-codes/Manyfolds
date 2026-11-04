@@ -14,7 +14,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types scripts/recommendation-quality-test.mjs && node --experimental-strip-types scripts/workspace-storage-test.mjs && node scripts/dashboard-interaction-check.mjs && node scripts/auth-flow-check.mjs && node --experimental-strip-types scripts/ai-roadmap-architecture-test.mjs && node --experimental-strip-types scripts/programme-pilot-validation-test.mjs",
+    "test": "node --experimental-strip-types scripts/recommendation-quality-test.mjs && node --experimental-strip-types scripts/workspace-storage-test.mjs && node scripts/dashboard-interaction-check.mjs && node scripts/auth-flow-check.mjs && node --experimental-strip-types scripts/ai-roadmap-architecture-test.mjs && node --experimental-strip-types scripts/programme-pilot-validation-test.mjs && node --experimental-strip-types scripts/public-demo-test.mjs",
     "ai:evaluate": "node --experimental-strip-types scripts/evaluate-roadmap-models.mjs",
     "ai:evaluate:run": "node --experimental-strip-types scripts/evaluate-roadmap-models.mjs --run",
     "ai:evaluate:aggregate": "node scripts/aggregate-roadmap-evaluation.mjs",

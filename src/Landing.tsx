@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import './ManyfoldsLanding.css'
 
 const interestExamples = [
@@ -33,7 +32,7 @@ function FoldMark({ large = false }: { large?: boolean }) {
   )
 }
 
-function Wordmark({ withMark = true }: { withMark?: boolean }) {
+export function Wordmark({ withMark = true }: { withMark?: boolean }) {
   return (
     <span className="manyfolds-lockup">
       {withMark && <FoldMark />}
@@ -87,7 +86,7 @@ function PossibilityMap() {
 
       <div className="map-step map-step-results"><b>3</b><span>Directions to explore</span></div>
       <article className="map-result result-one">
-        <small>01 · strong fit</small>
+        <small>01 · explore</small>
         <strong>UX research</strong>
         <span>People + technology</span>
       </article>
@@ -106,52 +105,24 @@ function PossibilityMap() {
 }
 
 export default function Landing({ openDashboard }: { openDashboard: () => void }) {
-  const [showOpening, setShowOpening] = useState(true)
-
-  useEffect(() => {
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reducedMotion) {
-      setShowOpening(false)
-      return
-    }
-
-    const timer = window.setTimeout(() => setShowOpening(false), 2850)
-    return () => window.clearTimeout(timer)
-  }, [])
 
   return (
     <div className="manyfolds-landing">
-      {showOpening && (
-        <div className="manyfolds-opening" aria-hidden="true">
-          <div className="opening-stage">
-            <FoldMark large />
-            <div>
-              <Wordmark withMark={false} />
-              <p>possibilities, unfolded.</p>
-            </div>
-          </div>
-          <div className="opening-paths">
-            <i />
-            <i />
-            <i />
-          </div>
-        </div>
-      )}
-
+      <a className="landing-skip" href="#main-content">Skip to content</a>
       <header className="manyfolds-nav">
         <a href="/" className="wordmark-link">
           <Wordmark />
         </a>
         <nav aria-label="Main navigation">
-          <a href="/for-schools">For schools</a><a href="/how-it-works">How it works</a>
-          <a href="/for-counsellors">For counsellors</a><a href="/contact">Contact / Demo</a>
+          <a href="/demo">Try the demo</a><a href="/project">The project</a>
+          <a href="/how-it-works">How it works</a><a href="/for-schools">For schools</a>
         </nav>
         <button type="button" className="nav-sign-in" onClick={openDashboard}>
-          Sign in
+          Staff sign in
         </button>
       </header>
 
-      <main>
+      <main id="main-content">
         <section className="manyfolds-hero">
           <div className="hero-copy">
             <p className="eyebrow">Career guidance for schools</p>
@@ -165,11 +136,10 @@ export default function Landing({ openDashboard }: { openDashboard: () => void }
               with students, record decisions, and keep follow-ups connected.
             </p>
             <div className="hero-actions">
-              <button type="button" onClick={openDashboard}>
-                Open the staff workspace <span>↗</span>
-              </button>
-              <a href="#how">See how it works</a>
+              <a className="demo-primary" href="/demo">Try the interactive demo <span aria-hidden="true">↗</span></a>
+              <a href="/project">About the project</a>
             </div>
+            <p className="hero-demo-note">A student-built project. Explore with fictional records, no account needed.</p>
             <p className="hero-proof">
               Whole-student signals <i /> Connected pathways <i /> Realistic trade-offs
             </p>
@@ -206,9 +176,9 @@ export default function Landing({ openDashboard }: { openDashboard: () => void }
                 <span>0{index + 1}</span>
                 <h3>{title}</h3>
                 <p>{description}</p>
-                <button type="button" onClick={openDashboard}>
-                  Explore this combination <b>↗</b>
-                </button>
+                <a className="example-demo-link" href={'/demo?profile='+['psychology','environment','enterprise'][index]}>
+                  Explore this combination <b aria-hidden="true">↗</b>
+                </a>
               </article>
             ))}
           </div>
@@ -268,7 +238,7 @@ export default function Landing({ openDashboard }: { openDashboard: () => void }
 
       <footer className="manyfolds-footer">
         <Wordmark />
-        <p>More than one interest. More than one way forward.</p><nav aria-label="More about Manyfolds"><a href="/impact">Impact</a><a href="/resources">Resources</a><a href="/privacy">Privacy and data safety</a><a href="/contact">Contact</a></nav>
+        <p>A student-built project. More than one way forward.</p><nav aria-label="More about Manyfolds"><a href="/demo">Interactive demo</a><a href="/project">The project</a><a href="/impact">Impact</a><a href="/resources">Resources</a><a href="/privacy">Privacy and data safety</a><a href="/contact">Contact</a></nav>
         <button type="button" onClick={openDashboard}>
           For counsellors
         </button>

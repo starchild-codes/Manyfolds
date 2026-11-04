@@ -8,7 +8,7 @@ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve))
 const origin=`http://127.0.0.1:${server.address().port}`
 try{
  const request=async(path,init)=>{const res=await fetch(origin+path,init);return {status:res.status,headers:res.headers,text:await res.text()}}
- for(const path of ['/','/dashboard','/auth/callback',`/invite/${'a'.repeat(64)}`]){const res=await request(path);assert.equal(res.status,200);assert.match(res.text,/<div id="root">/);assert.match(res.headers.get('content-type'),/text\/html/)}
+ for(const path of ['/','/demo','/demo?profile=environment','/project','/about','/how-it-works','/resources','/privacy','/contact','/dashboard','/auth/callback',`/invite/${'a'.repeat(64)}`]){const res=await request(path);assert.equal(res.status,200);assert.match(res.text,/<div id="root">/);assert.match(res.headers.get('content-type'),/text\/html/)}
  for(const path of ['/api/students','/api/workspace','/api/guidance','/api/school/reports','/api/operations/configuration','/api/operations/profile?student=test','/api/student-documents/?student=test','/api/ai-roadmaps/latest','/api/ai-roadmaps/research','/api/counsellor-records?type=course']){const res=await request(path);assert.equal(res.status,401,path);assert.match(res.headers.get('content-type'),/application\/json/)}
  const knowledge=await request('/api/knowledge?type=Course');assert.equal(knowledge.status,200);assert.ok(Array.isArray(JSON.parse(knowledge.text).records))
  assert.equal((await request('/api/not-a-route')).status,404)

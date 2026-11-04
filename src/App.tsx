@@ -1,3 +1,5 @@
+const PublicDemo=lazy(()=>import('./PublicDemo'))
+const ProjectPage=lazy(()=>import('./ProjectPage'))
 import TodayGuidanceSummary from './TodayGuidanceSummary'
 const StudentPlanning=lazy(()=>import('./StudentPlanning'))
 import {guidanceStaff,counsellingStaff} from './staffRoles'
@@ -66,6 +68,8 @@ export default function App() {
   useEffect(()=>{const handler=()=>setRoute(window.location.pathname);window.addEventListener('popstate',handler);return()=>window.removeEventListener('popstate',handler)},[])
   if(route==='/'&&authRedirectError(window.location.search,window.location.hash))return <AuthCallback/>
   if(route === '/') return <Landing openDashboard={()=>{window.history.pushState({},'', '/auth');setRoute('/auth')}}/>
+  if(route==='/demo')return <PublicDemo/>
+  if(route==='/project'||route==='/about')return <ProjectPage/>
   if(Object.hasOwn(publicPages,route))return <PublicPages path={route as keyof typeof publicPages}/>
   if(route === '/auth') return <SignIn />
   if(route === '/auth/callback') return <AuthCallback />
