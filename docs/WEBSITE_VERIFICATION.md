@@ -93,3 +93,11 @@ The original specification still has open import/bulk-workflow, retention/operat
 | `test:production-package` | PASS |
 
 Detailed timestamped outputs and prior attempts are retained locally in `output/qa/release-sweep.json`. Live HTTP, AI-provider and auth-configuration results are retained alongside it. Synthetic provider output is kept out of Git.
+
+## Production publication
+
+Application source commit `1a944a9` was deployed successfully to the existing Manyfolds production project as `dpl_DWV24vyHtLZZWR9uymDzSuCb9RWf`. Both www and apex domains were checked against the new `index-BfyWWx-P.js` bundle. Eleven public/auth routes, readiness, five anonymous-access denials, and the current workflow/filter/consent/demo assets passed live HTTP checks. The matching [GitHub app checks](https://github.com/starchild-codes/Manyfolds/actions/runs/43897766114) passed.
+
+This publication does not close the dataset coverage, inbox delivery or authenticated browser findings above.
+
+Reproduce the optional provider smoke with `node --experimental-strip-types scripts/live-ai-smoke.mjs --run`. It uses fictional evidence, at most two configured-model calls, and a total projected price cap of USD 0.02. Provider results remain separate so a rejected primary is never presented as having passed merely because a valid fallback exists.
