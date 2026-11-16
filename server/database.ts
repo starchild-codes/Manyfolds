@@ -1,5 +1,6 @@
 import type { EventEmitter } from 'node:events'
 import { Pool, type PoolClient } from 'pg'
+import { setTimeout as pause } from 'node:timers/promises'
 
 const connectionFailure=(error:unknown)=>['ECONNRESET','ECONNREFUSED','ETIMEDOUT','EPIPE'].includes((error as {code?:string}).code||'')||/connection terminated|timeout/i.test(error instanceof Error?error.message:'')
 // Only retry acquiring/checking a connection, before any transaction or write starts.
@@ -7,12 +8,12 @@ export async function checkedDatabaseClient(pool:Pool):Promise<PoolClient>{
  for(let attempt=0;attempt<2;attempt++){
   let client:PoolClient|undefined
   try{client=await pool.connect();await client.query('select 1');return client}
-  catch(error){client?.release(true);if(attempt||!connectionFailure(error)){console.error('Database preflight failed:',(error as {code?:string}).code||'connection',error instanceof Error?error.message:'Connection unavailable');throw error}}
+  catch(error){client?.release(true);if(attempt||!connectionFailure(error)){console.error('Database preflight failed:',(error as {code?:string}).code||'connection',error instanceof Error?error.message:'Connection unavailable');throw error}await pause(200)}
  }
  throw new Error('Database connection unavailable.')
 }
 export async function readDatabase(pool:Pool|PoolClient,sql:string,values:unknown[]=[]){
- try{return await pool.query(sql,values)}catch(error){if(!connectionFailure(error))throw error;return pool.query(sql,values)}
+ try{return await pool.query(sql,values)}catch(error){if(!connectionFailure(error))throw error;await pause(100);return pool.query(sql,values)}
 }
 
 // Every API in a server process shares these connections.

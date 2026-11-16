@@ -56,7 +56,11 @@ try {
  assert.equal((await call('/private-notes?student=first','GET','outsider')).status,404)
  assert.equal((await call('/private-notes','PUT','colleague',{...note,body:'Colleague private note'})).status,200)
  const profile=blankStudentProfile();profile.overview.language='Hindi';profile.constraints.affordability_band='Sensitive fixture constraint';profile.academics=[{id:randomUUID(),subject:'Mathematics',result:'84',scale:'100',term:'Term 1',year:'2026-27',source:'Synthetic school assessment',resultType:'Reported result'}];profile.family=[{id:randomUUID(),guardian:'Fixture guardian',relationship:'Parent',date:'2026-10-16',concerns:'Private family concern',summary:'Agreed to review course options next month.',summaryStatus:'Draft',acknowledgement:'Not requested'}]
+ profile.consents=[{id:randomUUID(),purpose:'Guidance records',status:'Granted',date:'2026-10-16',respondent:'Synthetic guardian',source:'PRIVATE-CONSENT-REFERENCE',acknowledgement:'Acknowledged',acknowledgedBy:'Fixture owner',acknowledgedDate:'2026-10-16'}]
  const profileBody={studentKey:'first',version:0,details:profile}
+ assert.equal((await call('/profile','PUT','owner',{...profileBody,details:{...profile,consents:[{...profile.consents[0],source:''}]}})).status,400)
+ assert.equal((await call('/profile','PUT','owner',{...profileBody,details:{...profile,consents:[{...profile.consents[0],acknowledgedBy:''}]}})).status,400)
+ assert.equal((await call('/profile','PUT','owner',{...profileBody,details:{...profile,consents:[{...profile.consents[0],date:'2099-01-01'}]}})).status,400)
  assert.equal((await call('/profile?student=first','GET','teacher')).status,403)
  assert.equal((await call('/profile?student=first','GET','outsider')).status,404)
  assert.equal((await call('/profile','PUT','teacher',profileBody)).status,403)
@@ -66,9 +70,18 @@ try {
  assert.equal((await call('/profile?student=first','GET','colleague')).data.record.details.overview.language,'Hindi')
  assert.equal((await call('/profile-summary','POST','owner',{studentKey:'first',meetingId:profile.family[0].id})).status,409)
  profile.family[0].summaryStatus='Approved for sharing'
+ profile.consents.push({...profile.consents[0],id:randomUUID(),status:'Withdrawn'})
  assert.equal((await call('/profile','PUT','owner',{...profileBody,version:1})).status,200)
  assert.equal((await call('/profile?student=first&revision=1')).data.record.details.family[0].summaryStatus,'Draft')
  const shareable=await call('/profile-summary','POST','owner',{studentKey:'first',meetingId:profile.family[0].id});assert.equal(shareable.status,200);assert.equal(shareable.data.summary,profile.family[0].summary);assert.ok(!JSON.stringify(shareable.data).includes('Private family concern'));assert.ok(!JSON.stringify(shareable.data).includes('Sensitive fixture constraint'))
+ assert.equal((await call('/profile?student=first&revision=1')).data.record.details.consents[0].status,'Granted')
+ const consentReload=(await call('/profile?student=first')).data.record.details.consents;assert.equal(consentReload.length,2);assert.equal(consentReload[1].status,'Withdrawn')
+ assert.ok(!JSON.stringify(shareable.data).includes('PRIVATE-CONSENT-REFERENCE'))
+ assert.equal((await call('/registry-details','GET','teacher')).status,403)
+ const scopedRegistry=await call('/registry-details');assert.equal(scopedRegistry.status,200,JSON.stringify(scopedRegistry.data))
+ const firstDetails=scopedRegistry.data.records.find(r=>r.id==='first');assert.deepEqual(firstDetails.consent,['Withdrawn']);assert.equal(firstDetails.profileAreas,2);assert.equal(firstDetails.className,'11');assert.equal(firstDetails.section,'A')
+ assert.ok(!JSON.stringify(scopedRegistry.data).includes('PRIVATE-CONSENT-REFERENCE'));assert.ok(!JSON.stringify(scopedRegistry.data).includes('Sensitive fixture constraint'));assert.ok(!JSON.stringify(scopedRegistry.data).includes(note.body))
+ assert.deepEqual((await call('/registry-details','GET','outsider')).data.records,[])
  const academicCsv='subject,result,scale,term,year,source,resultType\nMathematics,84,100,Term 1,2026-27,Fixture,Reported result'
  assert.equal((await call('/profile-academics/preview','POST','owner',{csv:academicCsv})).data.records.length,1)
  assert.equal((await call('/profile-academics/preview','POST','owner',{csv:academicCsv+'\nMathematics,84,100,Term 1,2026-27,Fixture,Reported result'})).status,400)

@@ -20,6 +20,7 @@ import {resourceTypes} from './resourceTypes.ts'
 import {caseSummaryRequest} from './caseSummary.ts'
 import {sharingRequest} from './sharing.ts'
 import {searchRequest} from './search.ts'
+import {registryDetailsRequest} from './registryDetails.ts'
 
 class OperationError extends Error {readonly statusCode:number;constructor(message:string,statusCode=400){super(message);this.statusCode=statusCode}}
 const reply=(res:ServerResponse,status:number,value:unknown)=>{res.statusCode=status;res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(value))}
@@ -38,6 +39,7 @@ export function schoolOperationsApi(env:Record<string,string|undefined>,authenti
    const auth=await authenticate(req,pool,config,'operations'),url=new URL(req.url||'/','http://localhost'),path=url.pathname
    operationAuth=auth
    assertAreaAccess(auth,'operations',path,req.method||'GET')
+   if(await registryDetailsRequest(req,res,pool,auth,url))return
    if(await caseSummaryRequest(req,res,pool,auth,url))return
    if(await sharingRequest(req,res,pool,auth,url))return
    if(await pipelineRequest(req,res,pool,auth,url))return
