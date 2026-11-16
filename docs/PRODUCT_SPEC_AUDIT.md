@@ -1,5 +1,7 @@
 # Manyfolds product specification audit
 
+Current verification evidence (16 November 2026): see [WEBSITE_VERIFICATION.md](WEBSITE_VERIFICATION.md) for the public-claim/workflow matrix, new saved-consent and registry work, test results and unresolved checks. The historical matrix below is not a complete current release sign-off.
+
 Updated on 20 October 2026 against `Product_info.md`. This is a feature-group audit, not a claim that every individual requirement is complete. Passing regression tests does not establish implementation of missing features.
 
 ## Counsellor journey changes
