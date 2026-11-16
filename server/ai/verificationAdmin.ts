@@ -217,7 +217,7 @@ export class VerificationAdminService {
           throw new RoadmapServiceError('This source type cannot be published by this review action.', 422)
         }
         const listing = row.payload as { name?: string; deadline?: string; applicationState?: string; applicationMode?: string; cardHash?: string }
-        if (!listing.name || !/^2026-\d{2}-\d{2}$/.test(listing.deadline || '') || listing.applicationState !== 'open' || listing.cardHash !== row.source_hash) {
+        if (!listing.name || typeof listing.deadline !== 'string' || !/^202[67]-\d{2}-\d{2}$/.test(listing.deadline) || !Number.isFinite(Date.parse(listing.deadline)) || new Date(listing.deadline).toISOString().slice(0, 10) !== listing.deadline || listing.applicationState !== 'open' || listing.cardHash !== row.source_hash) {
           throw new RoadmapServiceError('Candidate details are incomplete or inconsistent.', 422)
         }
         const indiaToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
