@@ -33,7 +33,10 @@ try {
       const relation=await client.query(`select 1 from catalogue_claims where claim_key='relationship:lawyer:ballb' and verification_status='verified' and (expires_at is null or expires_at>=(now() at time zone 'Asia/Kolkata')::date)`)
       assert.equal(evidence.verified_relationships.some(link => link.relationship_type === 'career_to_course' && link.to_id === expectedCourse),Boolean(relation.rowCount),'Career-to-course evidence must follow the current relationship claim; a stale regulator page must not be promoted')
     }
-    if (name.startsWith('Law')) assert.ok(evidence.verified_admission_cycles.some(cycle => cycle.application_deadline === '2026-10-31'), 'CLAT 2027 deadline missing')
+    if (name.startsWith('Law')) {
+      const deadline=await client.query("select 1 from catalogue_claims where claim_key='programme-cycle:nlsiu-clat2027:deadline' and claim_value=to_jsonb('2026-10-31'::text) and verification_status='verified' and (expires_at is null or expires_at>=(now() at time zone 'Asia/Kolkata')::date)")
+      assert.equal(evidence.verified_admission_cycles.some(cycle=>cycle.application_deadline==='2026-10-31'),Boolean(deadline.rowCount),'Expired CLAT deadline must stay out of current AI evidence')
+    }
   }
   await client.query("update catalogue_claims set verification_status='stale' where claim_key='course:iitd-cse:name'")
   const withheld = await buildEvidencePackage(client, {

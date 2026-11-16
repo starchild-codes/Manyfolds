@@ -22,14 +22,24 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - name: Check official sources and stage NSP cards
+      - name: Check official source changes
         if: env.DATABASE_URL != ''
-        run: |
-          npm run data:sources:check:apply
-          npm run data:scholarships:stage:apply
-          node scripts/reverify-official-pilot.mjs --apply
-          node scripts/publish-reviewed-nsp-listings.mjs --apply
-          npm run data:verified:coverage
+        run: npm run data:sources:check:apply
+      - name: Recheck reviewed academic programme facts independently
+        if: always() && env.DATABASE_URL != ''
+        run: node scripts/reverify-official-pilot.mjs --apply
+      - name: Recheck reviewed vocational qualification rows
+        if: always() && env.DATABASE_URL != ''
+        run: node scripts/import-dgt-cts.mjs --apply
+      - name: Stage current NSP cards for review
+        if: always() && env.DATABASE_URL != ''
+        run: npm run data:scholarships:stage:apply
+      - name: Publish unchanged reviewed NSP cards
+        if: always() && env.DATABASE_URL != ''
+        run: node scripts/publish-reviewed-nsp-listings.mjs --apply
+      - name: Report coverage even when a publisher requires review
+        if: always() && env.DATABASE_URL != ''
+        run: npm run data:verified:coverage
       - name: Explain missing database connection
         if: env.DATABASE_URL == ''
         run: echo 'Set the MANYFOLDS_DATABASE_URL repository secret to enable the scheduled source refresh.'
