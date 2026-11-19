@@ -2,6 +2,8 @@
 
 Started 20 October 2026. This is an implementation tracker, not a readiness claim.
 
+Current update, 19 November: saved consent/acknowledgements, detailed registry filters/exports and all five existing-student CSV import types are implemented alongside the original roster import. See [RECORD_IMPORTS.md](RECORD_IMPORTS.md). The data-coverage failure is resolved with current official domestic NLSIU admission rules and an explicit exam relationship; ten current NSP application windows were reviewed. The expanded release runner is 30/30 after a preserved targeted preflight-connection rerun. [WEBSITE_VERIFICATION.md](WEBSITE_VERIFICATION.md) records current evidence. The older entries below retain their original dates; use the current product audit for remaining details. GoDaddy email has been purchased, but its product/mailbox and actual SMTP activation are still pending; browser access is unavailable.
+
 - [x] Implement roles, assigned caseloads, temporary coverage, limited staff screens and explicitly allowlisted platform school administration; exercise API/RLS boundaries on synthetic schools
 - [x] Implement multiple student pathways and dated action plans with milestones, dependencies and review history; test primary-route uniqueness, conflicts and approved summary privacy
 - [x] Implement task ownership, responsibility, priority, evidence, comments and deduplicated session-action conversion

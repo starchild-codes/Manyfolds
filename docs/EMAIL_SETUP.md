@@ -1,6 +1,14 @@
 # Manyfolds email activation
 
-Status checked 19 October 2026: no domain/provider purchased, no custom SMTP or verified sender configured. Email confirmation stays required. Google sign-in can operate independently. Signup confirmation and password-reset delivery are not commercially ready until sender activation and inbox testing succeed.
+Status checked 19 November 2026: `www.manyfolds.in` is configured, but no custom SMTP or verified sender is configured in Supabase and all five local SMTP fields are missing. Email confirmation stays required. Google sign-in can operate independently. Signup confirmation and password-reset delivery are not commercially ready until sender activation and inbox testing succeed.
+
+The owner has confirmed that email was purchased with the GoDaddy domain. The exact product and mailbox activation have not yet been identified; a public MX lookup returned no records at this check. Do not assume another purchase is necessary.
+
+## Finding the purchased GoDaddy email
+
+Open [My Products](https://account.godaddy.com/products), find Email & Office, and choose Manage or Set up. Identify whether the product is Professional Email/Titan or Microsoft 365. Complete the provider's mailbox/domain setup before testing delivery. Keep any mailbox password out of chat and Git.
+
+For **Professional Email powered by Titan**, GoDaddy's [website SMTP instructions](https://www.godaddy.com/en-in/help/set-up-third-party-plugins-or-websites-using-smtp-settings-42788) specify `smtpout.secureserver.net`, SSL and port `465`. The username and sender must be the actual configured mailbox address. These settings must not be assumed for Microsoft 365; use that product's [own server-settings instructions](https://www.godaddy.com/help/find-my-microsoft-365-server-settings-9012) and supported authentication method. The provider's accepted sending use/limits and a successful authenticated test must be checked before activation.
 
 ## Prepared implementation
 

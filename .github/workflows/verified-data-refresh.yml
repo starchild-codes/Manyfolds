@@ -31,6 +31,9 @@ jobs:
       - name: Recheck reviewed vocational qualification rows
         if: always() && env.DATABASE_URL != ''
         run: node scripts/import-dgt-cts.mjs --apply
+      - name: Recheck reviewed domestic NLSIU admission rules
+        if: always() && env.DATABASE_URL != ''
+        run: node scripts/import-nlsiu-ba.mjs --apply
       - name: Stage current NSP cards for review
         if: always() && env.DATABASE_URL != ''
         run: npm run data:scholarships:stage:apply

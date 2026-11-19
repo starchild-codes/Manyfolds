@@ -7,6 +7,14 @@ const stale = {query:async()=>{throw reset()},release:destroy=>{disposed=destroy
 const recovered = await checkedDatabaseClient({connect:async()=>++acquired===1?stale:healthy})
 assert.equal(recovered,healthy);assert.equal(disposed,true,'discard broken connection')
 assert.deepEqual(queries,['select 1'],'only connection preflight is retried, never application writes')
+let reconnects=0,discarded=0
+const staleTwice={query:async()=>{throw reset()},release:destroy=>{assert.equal(destroy,true);discarded++}}
+assert.equal(await checkedDatabaseClient({connect:async()=>++reconnects<3?staleTwice:healthy}),healthy)
+assert.equal(reconnects,3);assert.equal(discarded,2,'Each broken connection is discarded before the bounded reconnect')
+assert.ok(queries.every(sql=>sql==='select 1'),'Acquisition recovery must never replay application transactions')
+let preflightOutage=0
+await assert.rejects(checkedDatabaseClient({connect:async()=>{preflightOutage++;throw reset()}}),/connection reset/)
+assert.equal(preflightOutage,3,'Connection acquisition must still stop during an ongoing outage')
 let reads=0
 const result=await readDatabase({query:async(sql,params)=>{assert.equal(sql,'select example');assert.deepEqual(params,['value']);if(++reads===1)throw reset();return {rows:[{ok:true}]}}},'select example',['value'])
 assert.equal(result.rows[0].ok,true)

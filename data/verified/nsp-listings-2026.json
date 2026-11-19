@@ -1,15 +1,60 @@
 {
   "source": "https://scholarships.gov.in/All-Scholarships",
   "cycle": "2026-27",
-  "reviewedOn": "2026-10-19",
+  "reviewedOn": "2026-11-19",
   "reviewMethod": "source_audit",
   "scope": "Scheme identity and published general application window only. No benefit amount, qualifying conditions or personal eligibility.",
   "listings": [
-    { "name": "AICTE - Pragati Scholarship Scheme For Girl Students ( Technical Diploma) (Merit Based Scheme)", "hash": "b5a1b153ec55ba19800d653162d1f421f1ec1ff48f513f3a4228824b34a46de5" },
-    { "name": "AICTE - Saksham Scholarship Scheme For Specially Abled Student ( Technical Diploma) (Welfare Based Scheme)", "hash": "695db807d4310e096c1aaf58440115d8d2966722f034c9cfb492af9dabb4fdee" },
-    { "name": "AICTE - Swanath Scholarship Scheme (Technical Diploma) (Welfare Based Scheme)", "hash": "a71d0d08ce11995e698b75a23ef042fc813de102a4653fe6d2a9567ea788f6a7" },
-    { "name": "Pre Matric Scholarship For Students With Disabilities (Welfare Based Scheme)", "hash": "84979524c46906264523ade35f55f7e00b7cd1765a19e703571285166c0d1428" },
-    { "name": "Post Matric Scholarship For Students With Disabilities (Welfare Based Scheme)", "hash": "6602745d03f7a5164781013c627133e7b5b99a56ce3fe317e5dce0dade926757" },
-    { "name": "Scholarship For Top Class Education For Students With Disabilities (Welfare Based Scheme)", "hash": "4c7647e117d9257709ce7ca32cdbcb16717042adbd361e56261373be995b831e" }
-  ]
+    {
+      "name": "AICTE - Swanath Scholarship Scheme ( Technical Degree) (Welfare Based Scheme)",
+      "hash": "0e69cc030472eb5d3bad58aabb4b9324e02b8221cddf466af426ba57cc220304",
+      "deadline": "2026-11-30"
+    },
+    {
+      "name": "AICTE - Pragati Scholarship Scheme For Girl Students ( Technical Degree) (Merit Based Scheme)",
+      "hash": "19d0ef03e5d0102bec411b46e63dccd2333cf202f2cfdd1eb289b27b5f44f06c",
+      "deadline": "2026-11-30"
+    },
+    {
+      "name": "AICTE - Pragati Scholarship Scheme For Girl Students ( Technical Diploma) (Merit Based Scheme)",
+      "hash": "9d311e15cac20318bac7c3c95100073dd6e2ef3f025ab6b094b9d73ad0f490b1",
+      "deadline": "2026-11-30"
+    },
+    {
+      "name": "AICTE - Saksham Scholarship Scheme For Specially Abled Student ( Technical Diploma) (Welfare Based Scheme)",
+      "hash": "86590f71489df39485056570888a8b96032072296b10c902f0e94c06fec87598",
+      "deadline": "2026-11-30"
+    },
+    {
+      "name": "AICTE - Saksham Scholarship Scheme For Specially Abled Student ( Technical Degree) (Welfare Based Scheme)",
+      "hash": "cded27c57f5df775214b73fd6d2322670da88954b4217eb773c30262be384eb2",
+      "deadline": "2026-11-30"
+    },
+    {
+      "name": "AICTE - Swanath Scholarship Scheme (Technical Diploma) (Welfare Based Scheme)",
+      "hash": "ef27452d7679233c04fcfee593b5c93f46c834c7024a99d70c8bd4851d6f5566",
+      "deadline": "2026-11-30"
+    },
+    {
+      "name": "Post Matric Scholarship For Students With Disabilities (Welfare Based Scheme)",
+      "hash": "70f08120ae058dfe446771460ac563703a05f4fa14661c5a06c12a9b52d5b7f0",
+      "deadline": "2026-11-30"
+    },
+    {
+      "name": "Scholarship For Top Class Education For Students With Disabilities (Welfare Based Scheme)",
+      "hash": "bd86a62d730631cae30860e66e279fe3643150177c9d7f444a8bde7234429425",
+      "deadline": "2026-11-30"
+    },
+    {
+      "name": "Central Sector Scholarship Of Top Class Education For SC Students (Merit Based Scheme)",
+      "hash": "0c1bd0dbd022c49288f77e33f117fab3aa2b7b0881f3c2e77bcb977975774a25",
+      "deadline": "2026-11-30"
+    },
+    {
+      "name": "PM YASASVI Central Sector Scheme Of Top Class Education In Schools For OBC, EBC And DNT Students (Merit Based Scheme)",
+      "hash": "8643dfb7a2388a853635862cd0eae3e8178b970e088254df3b3625326204c504",
+      "deadline": "2026-11-30"
+    }
+  ],
+  "reviewAfter": "2026-11-30"
 }

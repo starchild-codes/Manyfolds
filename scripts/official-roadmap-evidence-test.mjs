@@ -27,6 +27,8 @@ try {
     })
     assert.ok(evidence.verified_courses.some(course => course.course_id === expectedCourse), `${name} mapped to ${evidence.primary_career.name} (${evidence.primary_career.career_id}) without sourced course`)
     if (expectedProgramme) assert.ok(evidence.verified_programmes.some(programme => programme.programme_name === expectedProgramme), `${name} missing sourced programme`)
+    assert.ok(evidence.verified_programmes.every(programme => programme.eligibility_status === 'insufficient_data'), 'A programme cycle cannot establish personal eligibility without verified marks/category/documents')
+    assert.equal(evidence.deterministic_eligibility.status, 'insufficient_data')
     assert.ok(evidence.source_records.some(source => source.source_url.startsWith('https://')), `${name} missing official source`)
     if (name.startsWith('Software')) assert.ok(!evidence.verified_relationships.some(link => link.relationship_type === 'career_to_course'), 'Seeded software career-to-course mapping was promoted without a relationship claim')
     if (name.startsWith('Law')) {

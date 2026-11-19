@@ -1,6 +1,16 @@
 # Manyfolds product specification audit
 
-Current verification evidence (16 November 2026): see [WEBSITE_VERIFICATION.md](WEBSITE_VERIFICATION.md) for the public-claim/workflow matrix, new saved-consent and registry work, test results and unresolved checks. The historical matrix below is not a complete current release sign-off.
+Current verification evidence: see [WEBSITE_VERIFICATION.md](WEBSITE_VERIFICATION.md) for the public-claim/workflow matrix, test results and unresolved checks. The historical matrix below is not a complete current release sign-off.
+
+## 19 November completion update
+
+- Existing-student class/staff assignments, guardians, academic results and historical session CSV imports are now implemented on main, including header mapping, validation/preview, semantic duplicate checks, atomic saves, conflict protection, result downloads and guarded rollback. See [RECORD_IMPORTS.md](RECORD_IMPORTS.md). The old draft-branch status below describes the earlier release.
+- Saved consent/acknowledgements, the fifteen registry filters, selected-record export, public/support pages and dedicated consent/deadline/plan/outcome documents were completed in earlier main releases; they should not be treated as missing merely because the historical matrix predates them.
+- Current official NLSIU domestic BA eligibility and its NLSAT-BA relationship were reviewed and published, along with the application and examination dates. A programme cycle alone no longer labels a student conditionally eligible.
+- Ten current NSP scheme names/application windows were reviewed against exact official cards. Benefits and personal eligibility remain withheld. The catalogue has 96 active claims, ten current scholarship listings and 21 pending source candidates at this check; it remains a bounded reviewed catalogue.
+- All six original import categories have a working path, including the existing roster import. Configurable fuzzy roster matching is still absent: IDs are the supported matching key and ambiguous records are not merged.
+
+Remaining original-spec detail includes richer bulk resource/group-follow-up/archive actions from the registry, configurable task automation, fuller priority-queue controls, the complete academic-structure/demographic reporting matrix, retention/deletion operations and broader field-level fee/recognition/benefit coverage. SMTP activation/inbox tests, commercial hosting confirmation and complete signed-in visual/accessibility checks also remain separate gates. This update does not certify full original-spec conformance.
 
 Updated on 20 October 2026 against `Product_info.md`. This is a feature-group audit, not a claim that every individual requirement is complete. Passing regression tests does not establish implementation of missing features.
 

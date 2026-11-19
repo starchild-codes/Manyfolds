@@ -328,9 +328,9 @@ export async function buildEvidencePackage(
       institution_name: row.institution_name as string,
       programme_name: row.programme_name as string,
       course_id: row.course_id as string | null,
-      eligibility_status: row.admission_cycle
-        ? ('conditionally_eligible' as const)
-        : ('insufficient_data' as const),
+      // A published admission cycle describes the programme, not this student's
+      // eligibility. Diagnostic preferences do not establish marks/category/proof.
+      eligibility_status: 'insufficient_data' as const,
       required_subjects: required,
       admission_route_summary: row.exam_id ? `Admission route includes ${row.exam_id.replace('exam-', '').replaceAll('-', ' ').toUpperCase()}; confirm the current cycle and all category rules.` : '',
       admission_cycle: row.admission_cycle || null,
@@ -438,10 +438,6 @@ export async function buildEvidencePackage(
   missingData.push('Current scholarship relationships are not verified.')
   if (!verifiedAdmissionCycles.length) missingData.push('No upcoming programme application deadline is verified for this pathway.')
 
-  const deterministicStatus = verifiedProgrammes.some((programme) => programme.eligibility_status === 'conditionally_eligible')
-    ? ('conditionally_eligible' as const)
-    : ('insufficient_data' as const)
-
   return {
     student,
     primary_career: primary.career,
@@ -454,11 +450,8 @@ export async function buildEvidencePackage(
     verified_admission_cycles: verifiedAdmissionCycles,
     source_records: sources,
     deterministic_eligibility: {
-      status: deterministicStatus,
-      missing_requirements:
-        deterministicStatus === 'insufficient_data'
-          ? ['Verified programme-level eligibility records']
-          : ['Individual marks, age and category rules, documents, examination results, and current seat allocation remain to be checked'],
+      status: 'insufficient_data',
+      missing_requirements: ['Student-specific qualifying marks, applicable category and qualification documents have not been verified against all current programme rules.'],
     },
     missing_data: missingData,
     personalisation: { hard_constraints: student.hard_constraints, high_priority_preferences: [], mixed_interest_combinations: student.subject_affinities.length > 1 ? [student.subject_affinities.slice(0, 3).join(' + ')] : [], eligibility_risks: student.hard_constraints.filter((item) => /missing|required/i.test(item)), financial_constraints: student.hard_constraints.filter((item) => /budget|cost|fee|tuition/i.test(item)), exam_constraints: student.hard_constraints.filter((item) => /exam/i.test(item)), route_preferences: student.degree_route_preferences.slice(0, 2), required_personalisation_effects: [{ profile_factor: 'student_profile', roadmap_sections_affected: ['summary', 'next_actions'] }] },

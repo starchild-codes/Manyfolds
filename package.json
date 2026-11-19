@@ -29,7 +29,7 @@
     "data:sources:check": "node scripts/check-catalogue-sources.mjs",
     "data:sources:check:apply": "node scripts/check-catalogue-sources.mjs --apply",
     "data:verified:coverage": "node scripts/verified-data-coverage.mjs",
-    "test:scholarship-parser": "node scripts/nsp-listing-parser-test.mjs",
+    "test:scholarship-parser": "node scripts/nsp-listing-parser-test.mjs && node scripts/nsp-review-test.mjs",
     "test:verification-workspace": "node --experimental-strip-types scripts/verification-workspace-test.mjs",
     "test:evaluation-persistence": "node scripts/evaluation-persistence-test.mjs",
     "data:audit": "node scripts/data-audit.mjs",
@@ -54,7 +54,9 @@
     "test:platform": "node --experimental-strip-types scripts/platform-administration-test.mjs",
     "test:pipeline": "node --experimental-strip-types scripts/pipeline-workflow-test.mjs",
     "test:leadership-notes": "node --experimental-strip-types scripts/leadership-notes-test.mjs",
-    "test:sharing": "node --experimental-strip-types scripts/student-sharing-test.mjs"
+    "test:sharing": "node --experimental-strip-types scripts/student-sharing-test.mjs",
+    "test:record-imports": "node --experimental-strip-types scripts/record-imports-test.mjs",
+    "test:nlsiu-admission": "node scripts/nlsiu-admission-test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0",

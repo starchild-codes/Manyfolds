@@ -1,6 +1,20 @@
 # Manyfolds website and workflow verification
 
-Review date: 16 November 2026. Target: https://www.manyfolds.in.
+Review date: 19 November 2026. Target: https://www.manyfolds.in.
+
+## 19 November release check
+
+The expanded runner has **30/30 groups passing after a targeted rerun**. Its initial full sweep passed 29/30: a saved-pathway request failed during database preflight because the connection terminated before a write. Acquisition now discards broken connections and permits at most three preflight attempts with short backoff. Fault-injection checks and the saved-pathway rerun passed; uncertain application transactions are not replayed. The original failure is retained in `previousAttempts` in the QA report.
+
+New work includes all five existing-student CSV import types, scoped result reports, guarded rollback and read-only preview recovery. Header/mapping, malformed-row, duplicate, role/caseload, version, atomicity, replay and rollback/history checks passed using synthetic schools. Server rendering passed for owner, lead counsellor, counsellor and data-entry choices. See [RECORD_IMPORTS.md](RECORD_IMPORTS.md).
+
+Official-source publication now includes reviewed NLSIU domestic BA 2027-28 eligibility, NLSAT-BA linkage and application/examination dates. A pinned domestic-section fingerprint detects added requirements as well as changed/deleted ones. Ten current NSP cards were reviewed for identity and application windows only. Source changes, expiry, renewal-only cards and conflicting/archived records remain publication gates. The previous coverage failure is resolved without lowering thresholds: two checked eligibility programmes and two current verified relationship claims. Current totals are 96 active claims, ten current scholarship listings, 21 pending candidates and 15 checked monitors.
+
+Personal eligibility now remains insufficient until student-specific marks/category/documents have actually been checked; an admission-cycle label does not establish it. The model order, model budgets and review/publication protections are unchanged.
+
+Build and lint passed. Browser inspection remains blocked: the current computer-use host reports unavailable. SMTP/sender settings are still absent; the owner confirms purchasing GoDaddy email, and product/mailbox identification is pending. Inbox delivery, complete authenticated visual/accessibility checks, commercial hosting confirmation and the remaining original-spec details in [PRODUCT_SPEC_AUDIT.md](PRODUCT_SPEC_AUDIT.md) are not certified by these automated checks.
+
+The following 16 November sections are retained as historical evidence; their older counts and 27/28 result are superseded by this update.
 
 This review distinguishes public claims, implemented workflows, automated evidence and manual browser evidence. A passing test is not proof of a missing feature, inbox delivery or an untested browser interaction. The detailed original-spec gaps remain in `PRODUCT_SPEC_AUDIT.md` and `SPEC_COMPLETION_WORK.md`.
 
