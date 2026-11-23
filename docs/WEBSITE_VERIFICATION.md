@@ -16,6 +16,8 @@ Build and lint passed. Browser inspection remains blocked: the current computer-
 
 The following 16 November sections are retained as historical evidence; their older counts and 27/28 result are superseded by this update.
 
+Production publication was confirmed on 23 November: source commit `9c16a1e` is deployed as `dpl_HGAgSWSH27KJviZKVoDVhSjfH2qQ`, READY in the existing Manyfolds Vercel project. Both apex and www returned HTTP 200 with `/assets/index-B8UXdMjT.js`; `/api/health` returned 200/ready. Email and browser limitations above remain open. No later full-suite rerun or authenticated browser sign-off is implied by these live HTTP checks.
+
 This review distinguishes public claims, implemented workflows, automated evidence and manual browser evidence. A passing test is not proof of a missing feature, inbox delivery or an untested browser interaction. The detailed original-spec gaps remain in `PRODUCT_SPEC_AUDIT.md` and `SPEC_COMPLETION_WORK.md`.
 
 ## Public claims and their implementation evidence

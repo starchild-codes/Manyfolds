@@ -4,6 +4,8 @@ Status checked 19 November 2026: `www.manyfolds.in` is configured, but no custom
 
 The owner has confirmed that email was purchased with the GoDaddy domain. The exact product and mailbox activation have not yet been identified; a public MX lookup returned no records at this check. Do not assume another purchase is necessary.
 
+23 November: the owner requested `contact@manyfolds.in` using the existing GoDaddy purchase while retaining Vercel website hosting. The mailbox has not been created or activated. Current checks still show no MX records, no custom SMTP/sender in Supabase and no local SMTP credentials. The browser host is unavailable; the native Edge binding returned another application's screenshot, so no input was sent. Signed-in GoDaddy access is required before identifying the purchased product, creating its mailbox, applying its exact mail DNS records and configuring/testing SMTP. Do not publish the new contact address or report delivery as working before those checks succeed.
+
 ## Finding the purchased GoDaddy email
 
 Open [My Products](https://account.godaddy.com/products), find Email & Office, and choose Manage or Set up. Identify whether the product is Professional Email/Titan or Microsoft 365. Complete the provider's mailbox/domain setup before testing delivery. Keep any mailbox password out of chat and Git.
